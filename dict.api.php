@@ -27,47 +27,53 @@
 			
 			if(!empty($_GET['word']))
 			{
-				$word = new SimpleXMLElement($this->fetch($_GET['word']));
-				
-				if(empty($word))
-					$json = $this->error('wordnotfound');
-				
+				if(strlen($_GET['word']) > 45)
+					$json = $this->error('wordtoolong');
+					
 				else
 				{
-					$word = $word->result;
+					$word = new SimpleXMLElement($this->fetch($_GET['word']));
 					
 					if(empty($word))
-						$json = $this->error('badresponse');
-						
+						$json = $this->error('wordnotfound');
+					
 					else
 					{
-						$examples = explode('; ', $word->example);
-						array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
+						$word = $word->result;
 						
-						$rel = explode(', ', $word->term);
-						$related = array();
-						
-						foreach($rel as $term)
-							if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
-								$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
-						
-						$def = explode(' ', $word->definition);
-						$definition = array();
-						
-						foreach($def as $term)
+						if(empty($word))
+							$json = $this->error('badresponse');
+							
+						else
 						{
-							$term = preg_replace('/[^a-z0-9-]/i', '', $term);
-							if($term != $_GET['word'])
-								$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
+							$examples = explode('; ', $word->example);
+							array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
+							
+							$rel = explode(', ', $word->term);
+							$related = array();
+							
+							foreach($rel as $term)
+								if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
+									$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
+							
+							$def = explode(' ', $word->definition);
+							$definition = array();
+							
+							foreach($def as $term)
+							{
+								$term = preg_replace('/[^a-z0-9-]/i', '', $term);
+								if($term != $_GET['word'])
+									$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
+							}
+							
+							$json = array(
+								'term' => $_GET['word'],
+								'related' => implode(', ', $related),
+								'definition' => implode(' ', $definition),
+								'examples' => implode('; ', $examples),
+								'partofspeech' => current($word->partofspeech)
+							);
 						}
-						
-						$json = array(
-							'term' => $_GET['word'],
-							'related' => implode(', ', $related),
-							'definition' => implode(' ', $definition),
-							'examples' => implode('; ', $examples),
-							'partofspeech' => current($word->partofspeech)
-						);
 					}
 				}
 			}

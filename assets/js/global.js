@@ -79,7 +79,7 @@
 			(function(){
 				new Request.JSON({
 					url: 'dict.api.php',
-					timeout: 15000,
+					timeout: 10000,
 					
 					onTimeout: function(){ setError('Operation timed out.') },
 					onCancel: function(){ setError('Operation was canceled.') },
