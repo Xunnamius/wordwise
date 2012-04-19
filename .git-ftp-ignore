@@ -1,2 +1,4 @@
 assets/less
 *\.psd
+\.git*
+*/\.git*
