@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+	<head>
+		<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
+		<meta charset="UTF-8" />
+		
+		<title>Titled Document</title>
+		
+		<meta name="viewport" content="width=100%, initial-scale=1.0" />
+		<meta name="author" content="Xunnamius of Dark Gray" />
+		<meta name="copyright" content="&copy; Copyright Dark Gray 2012. All Rights Reserved." />
+		<meta name="license" content="Twitter Bootstrap: https://github.com/twitter/bootstrap/blob/master/LICENSE" />
+		<meta name="keywords" content="" />
+		<meta name="description" content="" />
+		
+		<!-- CSS includes -->
+		<link rel="stylesheet" type="text/css" href="assets/css/bootstrap/bootstrap-min.css" />
+		<link rel="stylesheet" type="text/css" href="assets/css/boot-global-min.css" />
+		
+		<!-- IE6-8 support of HTML5 elements -->
+		<!--[if lt IE 9]>
+			<script type="text/javascript" src="//html5shim.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+	</head>
+	
+	<body>
+		<div class="container">
+			<div class="row">
+				<header class="span12">
+					<h1>Xunn's Web Scraper (demo)</h1>
+				</header>
+			</div>
+			<div class="row">
+				<hr class="span12" />
+			</div>
+			<div class="row">
+				<div class="span5">
+					<form id="grabber_form" class="form-search well">
+						<div>
+							<input type="text" id="grabber_word" placeholder="Loading..." disabled="disabled" />
+							<button id="grabber_grab" class="btn btn-info" type="submit" disabled="disabled">Grab</button>
+						</div>
+					</form>
+				</div>
+				<div class="span7">
+					<div id="grabber_data" class="alert alert-info">
+						<h2 id="grabber_data-head" class="alert-heading pull-left">Hello!</h2>
+						<p  id="grabber_data-pos"  class="pull-right"></p>
+						<p  id="grabber_data-rel"  class="clear-both"></p>
+						<p  id="grabber_data-def">Press "Grab" to get started.</p>
+						<p  id="grabber_data-ex"></p>
+					</div>
+				</div>
+			</div>
+		</div> <!-- /container -->
+		
+		<!-- JS includes -->
+		<script type="text/javascript" src="assets/js/mootools/moo-core-1.4.5.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/moo-more-1.4.0.1.js"></script>
+		<script type="text/javascript" src="assets/js/global.js"></script>
+	</body>
+</html>
