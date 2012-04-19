@@ -19,7 +19,7 @@
 				$('grabber_data-pos').set('text', data.partofspeech);
 				$('grabber_data-ex').set('text', data.examples).setStyle('display', 'block');
 				$('grabber_data-def').set('text', data.definition);
-				$('grabber_data-rel').set('text', data.related ? ('Related: '+data.related) : '');
+				$('grabber_data-rel').set('html', data.related ? ('Related: '+data.related) : '');
 			},
 			
 			setError = function(error)
@@ -66,14 +66,15 @@
 		
 		gForm.addEvent('submit', function(e)
 		{
-			e.stop();
+			if(e) e.stop();
+			
+			var word = $('grabber_word');
+			if(!word.get('value'))
+				return word.highlight('#d44');
+				
 			setLoading();
 			
 			(function(){
-				var word = $('grabber_word');
-				if(!word.get('value'))
-					return word.highlight('#d44');
-					
 				new Request.JSON({
 					url: 'dict.api.php',
 					timeout: 15000,
@@ -93,7 +94,20 @@
 			}).delay(500, this);
 		});
 		
+		window.onhashchange = function()
+		{
+			var wordterm = location.hash.substr(3);
+		
+			if(wordterm)
+			{
+				$('grabber_word').set('value', wordterm);
+				gForm.fireEvent('submit');
+			}
+		};
+		
 		$('grabber_word').set('placeholder', 'Your word here...');
 		gForm.enable();
+		
+		window.onhashchange();
 	});
 }(document.id);

@@ -8,9 +8,17 @@
 <?php
 	class Xunnamius extends Controller
 	{
+		public $MY_HOST;
+		
+		public function __construct()
+		{
+			$this->MY_HOST = 'http://'.$_SERVER['HTTP_HOST'].dirname($_SERVER['REQUEST_URI']);
+			parent::__construct();
+		}
+		
 		protected function run()
 		{
-			header('Location: http://'.$_SERVER['HTTP_HOST'].dirname($_SERVER['REQUEST_URI']));
+			header('Location: '.$this->MY_HOST);
 		}
 		
 		protected function run_AJAX()
@@ -33,14 +41,21 @@
 						
 					else
 					{
-						$arr = explode('; ', $word->example);
-						array_walk($arr, create_function('&$v,$k', '$v = trim($v, \'" \');'));
+						$examples = explode('; ', $word->example);
+						array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
+						
+						$rel = explode(', ', $word->term);
+						$related = array();
+						
+						foreach($rel as $term)
+							if($term != $_GET['word'])
+								$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
 						
 						$json = array(
 							'term' => $_GET['word'],
-							'related' => implode(', ', array_slice(explode(', ', $word->term), 1)),
+							'related' => implode(', ', $related),
 							'definition' => current($word->definition),
-							'examples' => implode('; ', $arr),
+							'examples' => implode('; ', $examples),
 							'partofspeech' => current($word->partofspeech)
 						);
 					}
