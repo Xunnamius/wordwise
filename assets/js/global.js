@@ -10,6 +10,8 @@
 			setWord = function(data)
 			{
 				gForm.enable();
+				location.hash = '#!/'+data.term;
+				$$('head title').set('text', 'Definition for '+data.term);
 				$('grabber_data')
 					.removeClass('alert-error')
 					.removeClass('alert-success')
@@ -18,7 +20,7 @@
 				$('grabber_data-head').set('text', data.term);
 				$('grabber_data-pos').set('text', data.partofspeech);
 				$('grabber_data-ex').set('text', data.examples).setStyle('display', 'block');
-				$('grabber_data-def').set('text', data.definition);
+				$('grabber_data-def').set('html', data.definition);
 				$('grabber_data-rel').set('html', data.related ? ('Related: '+data.related) : '');
 			},
 			
@@ -90,7 +92,7 @@
 						else
 							setWord(data);
 					}
-				}).get('api=1001&word='+encodeURIComponent(word.get('value')));
+				}).get('api=1001&word='+word.get('value'));
 			}).delay(500, this);
 		});
 		

@@ -48,13 +48,23 @@
 						$related = array();
 						
 						foreach($rel as $term)
-							if($term != $_GET['word'])
+							if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
 								$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
+						
+						$def = explode(' ', $word->definition);
+						$definition = array();
+						
+						foreach($def as $term)
+						{
+							$term = preg_replace('/[^a-z0-9-]/i', '', $term);
+							if($term != $_GET['word'])
+								$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
+						}
 						
 						$json = array(
 							'term' => $_GET['word'],
 							'related' => implode(', ', $related),
-							'definition' => current($word->definition),
+							'definition' => implode(' ', $definition),
 							'examples' => implode('; ', $examples),
 							'partofspeech' => current($word->partofspeech)
 						);
