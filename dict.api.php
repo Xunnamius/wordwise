@@ -65,8 +65,10 @@
 					
 					foreach($def as $term)
 					{
-						if(strlen($term) >= self::WORD_MINLENGTH)
-							$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.preg_replace('/[^a-z0-9-]/i', '', $term).'">'.$term.'</a>';
+						$symbolless = preg_replace('/[^a-z0-9-]/i', '', $term);
+						
+						if(strlen($symbolless) >= self::WORD_MINLENGTH)
+							$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$symbolless.'">'.$term.'</a>';
 						else
 							$definition[] = $term;
 					}
