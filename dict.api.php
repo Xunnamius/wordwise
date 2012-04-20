@@ -9,6 +9,8 @@
 	class Xunnamius extends Controller
 	{
 		public $MY_HOST;
+		const WORD_MAXLENGTH = 45;
+		const WORD_MINLENGTH = 3;
 		
 		public function __construct()
 		{
@@ -25,57 +27,57 @@
 		{
 			$json = $this->error('unhandled');
 			
-			if(!empty($_GET['word']))
+			if(empty($_GET['word']))
+				$json = $this->error('badrequest');
+				
+			else if(strlen($_GET['word']) > WORD_MAXLENGTH)
+				$json = $this->error('wordtoolong');
+			
+			else if(strlen($_GET['word']) < WORD_MINLENGTH)
+				$json = $this->error('wordtooshort');
+				
+			else
 			{
-				if(strlen($_GET['word']) > 45)
-					$json = $this->error('wordtoolong');
-					
+				$word = new SimpleXMLElement($this->fetch($_GET['word']));
+				
+				if(empty($word))
+					$json = $this->error('wordnotfound');
+				
+				else if(empty($word->result))
+						$json = $this->error('badresponse');
+						
 				else
 				{
-					$word = new SimpleXMLElement($this->fetch($_GET['word']));
+					$word = $word->result;
 					
-					if(empty($word))
-						$json = $this->error('wordnotfound');
+					$examples = explode('; ', $word->example);
+					array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
 					
-					else
+					$rel = explode(', ', $word->term);
+					$related = array();
+					
+					foreach($rel as $term)
+						if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
+							$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
+					
+					$def = explode(' ', $word->definition);
+					$definition = array();
+					
+					foreach($def as $term)
 					{
-						$word = $word->result;
-						
-						if(empty($word))
-							$json = $this->error('badresponse');
-							
-						else
-						{
-							$examples = explode('; ', $word->example);
-							array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
-							
-							$rel = explode(', ', $word->term);
-							$related = array();
-							
-							foreach($rel as $term)
-								if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
-									$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
-							
-							$def = explode(' ', $word->definition);
-							$definition = array();
-							
-							foreach($def as $term)
-								$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.preg_replace('/[^a-z0-9-]/i', '', $term).'">'.$term.'</a>';
-							
-							$json = array(
-								'term' => $_GET['word'],
-								'related' => implode(', ', $related),
-								'definition' => implode(' ', $definition),
-								'examples' => implode('; ', $examples),
-								'partofspeech' => current($word->partofspeech)
-							);
-						}
+						if(strlen($term) >= WORD_MINLENGTH)
+							$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.preg_replace('/[^a-z0-9-]/i', '', $term).'">'.$term.'</a>';
 					}
+					
+					$json = array(
+						'term' => $_GET['word'],
+						'related' => implode(', ', $related),
+						'definition' => implode(' ', $definition),
+						'examples' => implode('; ', $examples),
+						'partofspeech' => current($word->partofspeech)
+					);
 				}
-			}
-			
-			else
-				$json = $this->error('badrequest');
+			}	
 				
 			echo json_encode($json);
 		}

@@ -11,7 +11,7 @@
 			{
 				gForm.enable();
 				location.hash = '#!/'+data.term;
-				$$('head title').set('text', 'Definition for '+data.term);
+				$$('head title').set('text', 'Definition for "'+data.term+'"');
 				$('grabber_data')
 					.removeClass('alert-error')
 					.removeClass('alert-success')
