@@ -60,11 +60,7 @@
 							$definition = array();
 							
 							foreach($def as $term)
-							{
-								$term = preg_replace('/[^a-z0-9-]/i', '', $term);
-								if($term != $_GET['word'])
-									$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
-							}
+								$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.preg_replace('/[^a-z0-9-]/i', '', $term).'">'.$term.'</a>';
 							
 							$json = array(
 								'term' => $_GET['word'],
