@@ -30,10 +30,10 @@
 			if(empty($_GET['word']))
 				$json = $this->error('badrequest');
 				
-			else if(strlen($_GET['word']) > WORD_MAXLENGTH)
+			else if(strlen($_GET['word']) > self::WORD_MAXLENGTH)
 				$json = $this->error('wordtoolong');
 			
-			else if(strlen($_GET['word']) < WORD_MINLENGTH)
+			else if(strlen($_GET['word']) < self::WORD_MINLENGTH)
 				$json = $this->error('wordtooshort');
 				
 			else
@@ -65,8 +65,10 @@
 					
 					foreach($def as $term)
 					{
-						if(strlen($term) >= WORD_MINLENGTH)
+						if(strlen($term) >= self::WORD_MINLENGTH)
 							$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.preg_replace('/[^a-z0-9-]/i', '', $term).'">'.$term.'</a>';
+						else
+							$definition[] = $term;
 					}
 					
 					$json = array(
