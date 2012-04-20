@@ -1,5 +1,5 @@
 /************************************************
-  Copyright Dark Gray 2012. All Rights Reserved.
+  Copyright Dark Gray 2012. All Rights Reserved!
 *************************************************/
 
 !function($)
