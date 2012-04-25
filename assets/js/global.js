@@ -1,7 +1,7 @@
 /************************************************
   Copyright Dark Gray 2012. All Rights Reserved!
 *************************************************/
-
+// TODO: find if the next word without the letter exists, and then the next one
 !function($)
 {
 	window.addEvent('domready', function()
@@ -78,7 +78,7 @@
 			
 			(function(){
 				new Request.JSON({
-					url: 'dict.api.php',
+					url: 'api.php',
 					timeout: 10000,
 					
 					onTimeout: function(){ setError('Operation timed out.') },

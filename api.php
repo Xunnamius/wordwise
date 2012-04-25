@@ -38,48 +38,53 @@
 				
 			else
 			{
-				$word = new SimpleXMLElement($this->fetch($_GET['word']));
+				$json = $this->fetch($_GET['word']);
 				
-				if(empty($word))
-					$json = $this->error('wordnotfound');
-				
-				else if(empty($word->result))
-						$json = $this->error('badresponse');
-						
-				else
+				if(is_string($json))
 				{
-					$word = $word->result;
+					$word = new SimpleXMLElement($json);
 					
-					$examples = explode('; ', $word->example);
-					array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
+					if(empty($word))
+						$json = $this->error('wordnotfound');
 					
-					$rel = explode(', ', $word->term);
-					$related = array();
-					
-					foreach($rel as $term)
-						if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
-							$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
-					
-					$def = explode(' ', $word->definition);
-					$definition = array();
-					
-					foreach($def as $term)
+					else if(empty($word->result))
+						$json = $this->error('badresponse');
+							
+					else
 					{
-						$symbolless = preg_replace('/[^a-z0-9-]/i', '', $term);
+						$word = $word->result;
 						
-						if(strlen($symbolless) >= self::WORD_MINLENGTH)
-							$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$symbolless.'">'.$term.'</a>';
-						else
-							$definition[] = $term;
+						$examples = explode('; ', $word->example);
+						array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
+						
+						$rel = explode(', ', $word->term);
+						$related = array();
+						
+						foreach($rel as $term)
+							if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
+								$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
+						
+						$def = explode(' ', $word->definition);
+						$definition = array();
+						
+						foreach($def as $term)
+						{
+							$symbolless = preg_replace('/[^a-z0-9-]/i', '', $term);
+							
+							if(strlen($symbolless) >= self::WORD_MINLENGTH)
+								$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$symbolless.'">'.$term.'</a>';
+							else
+								$definition[] = $term;
+						}
+						
+						$json = array(
+							'term' => $_GET['word'],
+							'related' => implode(', ', $related),
+							'definition' => implode(' ', $definition),
+							'examples' => implode('; ', $examples),
+							'partofspeech' => current($word->partofspeech)
+						);
 					}
-					
-					$json = array(
-						'term' => $_GET['word'],
-						'related' => implode(', ', $related),
-						'definition' => implode(' ', $definition),
-						'examples' => implode('; ', $examples),
-						'partofspeech' => current($word->partofspeech)
-					);
 				}
 			}	
 				
@@ -114,9 +119,7 @@
 		}
 		
 		protected function error($reason)
-		{
-			return array('error' => $reason);
-		}
+		{ return array('error' => $reason); }
 	}
 	
 	new Xunnamius();
