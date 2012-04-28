@@ -91,7 +91,7 @@
 			$action = isset($_GET['action']) ? $_GET['action'] : NULL;
 			$token  = isset($_GET['token'])  ? $_GET['token']  : NULL;
 			
-			# Available actions (I'm writing an Command-pattern OO class that'll encapsulate all of this)
+			# Available actions (I'm writing a Command Pattern OO class that'll encapsulate all of this)
 			$ACTIONS = array('handshake', 'auth', 'register', 'addword', 'fetchRandomWord', 'unauth');
 			
 			# Okay, one more sentinel before we go on...
@@ -112,7 +112,7 @@
 					));
 				}
 				
-				# If the token provided is invalid, complain about it
+				# Sentinel: if the token provided is invalid, complain about it
 				if(is_null($_SESSION['USR']['DATA']['token']) || $token != $_SESSION['USR']['DATA']['token'])
 					RESULT::badToken();
 				
