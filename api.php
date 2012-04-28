@@ -51,6 +51,7 @@
 					'DATA' => array(
 						'username' => NULL,
 						'email' => NULL,
+						'id' => NULL,
 						'token' => NULL
 					)
 				);
@@ -100,10 +101,11 @@
 			# Connect to our DB
 			if($this->sql->new_connection('default'))
 			{
-				# handshake
+				# Action: handshake
 				if($action == $ACTIONS[0])
 				{
-					$_SESSION['USR']['DATA']['token'] = STR::random();
+					$_SESSION['USR']['DATA']['token'] = STR::random(100, 0, TRUE);
+					
 					RESULT::OK(array(
 						'token' => $_SESSION['USR']['DATA']['token'],
 						'preauth' => $_SESSION['USR']['FLAGS']['authenticated']
@@ -120,28 +122,46 @@
 					$sentinel = !isset($_GET['username'], $_GET['password']) ||
 					   			strlen($_GET['username']) > self::USERNAME_MAXLEN ||
 					   			strlen($_GET['username']) < self::USERNAME_MINLEN ||
-					   			strlen($_GET['password']) != self::PASSWORD_HEXLEN ||
+					   			strlen($_GET['password']) != self::PASSWORD_HEXLEN || # 'password' is expected to be a 40 char SHA1 hash
 					   			!$this->validate('password', TYPE_HEX, 'get');
 					
-					# authorize
+					# Action: authorize
 					if($_GET['action'] == $ACTIONS[1])
 					{
 						if($sentinel)
 							RESULT::badAuthentication();
 						
-						$rows = $dbc->query('SELECT * FROM users WHERE username = ? AND password = ? LIMIT 1',
+						$rows = $this->sql->query('SELECT username, email, id FROM users WHERE username = ? AND password = SHA1(CONCAT(hash_salt, ?)) LIMIT 1',
 							array(array($_GET['username'], S),
-								  array($_GET['email'], S)
+								  array($_GET['password'], S)
 							));
+						
+						if(!$rows->num_rows)
+							RESULT::notAuthenticated();
+						
+						else
+						{
+							$_SESSION['USR']['DATA']['username'] = $rows[0]['username'];
+							$_SESSION['USR']['DATA']['email'] = $rows[0]['email'];
+							$_SESSION['USR']['DATA']['id'] = $rows[0]['id'];
+							$_SESSION['USR']['FLAGS']['authenticated'] = TRUE;
+							
+							$this->sql->query('UPDATE users SET sess_id = ? WHERE username = ? LIMIT 1',
+								array(array(session_id(), S),
+									  array($_GET['username'], S)
+							));
+							
+							RESULT::OK();
+						}
 					}
 					
-					# register
+					# Action: register
 					else if($_GET['action'] == $ACTIONS[2])
 					{
 						if($sentinel || !$this->validate('email', TYPE_EMAIL, 'get'))
 							RESULT::badAuthentication();
 						
-						$rows = $dbc->query('SELECT COUNT(*) c, username u, email e FROM users WHERE username = ? OR email = ? LIMIT 1',
+						$rows = $this->sql->query('SELECT COUNT(*) c, username u, email e FROM users WHERE username = ? OR email = ? LIMIT 1',
 							array(array($_GET['username'], S),
 								  array($_GET['email'], S)
 							));
@@ -160,10 +180,12 @@
 						
 						else
 						{
-							$result = $dbc->query('INSERT INTO users (username, password, email) VALUES (?, UNHEX(?), ?) LIMIT 1',
+							$result = $this->sql->query('INSERT INTO users (username, password, email, hash_salt) VALUES (?, UNHEX(SHA1(CONCAT(?,?))), ?, ?) LIMIT 1',
 								array(array($_GET['username'], S),
+									  array($randstr = STR::random(40), S),
 									  array($_GET['password'], S),
-									  array($_GET['email'], S)
+									  array($_GET['email'], S),
+									  array($randstr, S)
 								));
 							
 							if($result->aff_rows)
@@ -173,99 +195,128 @@
 						}
 					}
 					
-					RESULT::notAuthorized();
+					else RESULT::forbidden();
 				}
 				
 				else
 				{
-					$json = ERROR::badRequest();
+					$result = $this->sql->query('SELECT username u FROM users WHERE sess_id = ? LIMIT 1', array(array(session_id(), S)));
+					$dishonorable = FALSE;
 					
-					// Check APIGUID w/ session call and variable check
-					if(false)
+					# Sentinel to make sure two users do not log in with the same account
+					if($result->num_rows != 1)
+						$dishonorable = TRUE;
+					
+					# Sanity check
+					if($result[0]['u'] != $_SESSION['USR']['DATA']['username'])
+						RESULT::internal();
+					
+					# Action: unauth (logout; destroy session & data)
+					if($dishonorable || $action == 'unauth')
 					{
+						# Bye bye!
+						$_SESSION['USR'] = array();
+						unset($_SESSION['USR']);
 						
+						session_regenerate_id();
+						session_destroy();
+						
+						# Set the session cookie to expire 20 years in the past...
+						if(isset($_COOKIE[session_name()])) setcookie(session_name(), '', time()-60*60*24*365*20, '', '', false, true);
+						
+						if($dishonorable)
+							RESULT::sessionMismatch();
+						else
+							RESULT::OK();
 					}
 					
-					else if($actionIS)
+					# Action: addWord
+					else if($action == 'addWord')
 					{
-						$action = $_GET['action'];
+						$word = isset($_GET['word']) ? $_GET['word'] : NULL;
 						
-						if($action == 'unauth')
+						if($word === NULL)
+							RESULT::badRequest();
+						
+						if(strlen($word) > self::WORD_MAXLENGTH)
+							RESULT::wordTooLong();
+						
+						else if(strlen($word) < self::WORD_MINLENGTH)
+							RESULT::wordTooShort();
+						
+						# All sentinels cleared!
+						else
 						{
+							# Attempt to check local cache
+							$rows = $this->sql->query('SELECT id FROM dict WHERE term = ? LIMIT 1', array(array($word)));
 							
-						}
-						
-						else if($action == 'addWord')
-						{
-							if(!empty($_GET['word']))
+							# (I hope) we've found it!
+							if($rows->num_rows)
+								$id = $rows[0]['id'];
+							
+							# Not found, so fetch it instead
+							else
 							{
-								if(strlen($_GET['word']) > self::WORD_MAXLENGTH)
-									$json = ERROR::wordTooLong();
+								$data = $this->fetch($word);
 								
-								else if(strlen($_GET['word']) < self::WORD_MINLENGTH)
-									$json = ERROR::wordTooShort();
-									
+								if(!is_string($data) || ($data = new SimpleXMLElement($data) && empty($data)))
+									RESULT::wordNotFound();
+								
+								else if(empty($word->result))
+									RESULT::badResponse();
+								
 								else
 								{
-									$json = $this->fetch($_GET['word']);
+									$data = $data->result;
+									$result = $this->sql->query('INSERT INTO dict (term, definition, usage, part_of_speech) VALUES (?, ?, ?, ?)',
+										array(array($word, S),
+											  array($data->definition, S),
+											  array($data->example, S),
+											  array(current($word->partofspeech), S)
+									));
 									
-									if(is_string($json))
-									{
-										$word = new SimpleXMLElement($json);
-										
-										if(empty($word))
-											$json = ERROR::wordNotFound();
-										
-										else if(empty($word->result))
-											$json = ERROR::badResponse();
-												
-										else
-										{
-											$word = $word->result;
-											
-											$examples = explode('; ', $word->example);
-											array_walk($examples, create_function('&$v,$k', '$v = trim($v, \'" \');'));
-											
-											$rel = explode(', ', $word->term);
-											$related = array();
-											
-											foreach($rel as $term)
-												if($term != $_GET['word'] && stripos($term, ' ') === FALSE)
-													$related[] = '<a href="'.$this->MY_HOST.'/#!/'.$term.'">'.$term.'</a>';
-											
-											$def = explode(' ', $word->definition);
-											$definition = array();
-											
-											foreach($def as $term)
-											{
-												$symbolless = preg_replace('/[^a-z0-9-]/i', '', $term);
-												
-												if(strlen($symbolless) >= self::WORD_MINLENGTH)
-													$definition[] = '<a href="'.$this->MY_HOST.'/#!/'.$symbolless.'">'.$term.'</a>';
-												else
-													$definition[] = $term;
-											}
-											
-											$json = array(
-												'term' => $_GET['word'],
-												'related' => implode(', ', $related),
-												'definition' => implode(' ', $definition),
-												'examples' => implode('; ', $examples),
-												'partofspeech' => current($word->partofspeech)
-											);
-										}
-									}
+									if(!$result->aff_rows)
+										RESULT::SQLError();
+									else
+										$id = $result->insert_id;
 								}
 							}
-						}
-						
-						else if($action == 'fetchRandomWord')
-						{
 							
+							# Associate the word with the user's account...
+							$res = $this->sql->query('INSERT INTO users_dict_junction (user_id, dict_id) VALUES (?, ?)',
+								array(array($_SESSION['USR']['DATA']['id'], I),
+									  array($id, I)
+							));
+							
+							if(!$res->aff_rows)
+								RESULT::SQLError();
+							else
+								RESULT::OK();
+						}
+					}
+					
+					# Action: fetchRandomWord
+					else if($action == 'fetchRandomWord')
+					{
+						$rows = $this->sql->query('SELECT term, definition def, usage, part_of_speech pos FROM dict WHERE id IN '.
+							'(SELECT dict_id FROM users_dict_junction WHERE user_id = ? ORDER BY RAND() LIMIT 1) LIMIT 1',
+							array(array($_SESSION['USR']['DATA']['id'], I)));
+						
+						if($rows->num_rows)
+						{
+							RESULT::OK(array(
+								'term' => $rows[0]['term'],
+								'definition' => $rows[0]['def'],
+								'usage' => $rows[0]['usage'],
+								'partOfSpeech' => $rows[0]['pos']
+							));
 						}
 						
-						else $json = ERROR::unknownAction();
+						else
+							RESULT::OK(); # Return NULL if no word can be returned
 					}
+					
+					else RESULT::unknownAction();
 				}
 			}
 			
@@ -299,11 +350,11 @@
 					$response = file_get_contents($host, 'r');
 					
 				else
-					$response = ERROR::internal();
+					RESULT::internal();
 			}
 			
 			catch(Exception $e)
-			{ $response = ERROR::external(); }
+			{ RESULT::external(); }
 				
 			return $response;
 		}
@@ -333,7 +384,10 @@
 				
 				case 'notAuthenticated':			# Auth failed
 				case 'badAuthentication':			# Auth request was malformed in some way
+				case 'forbidden':					# Not-auth user attempted to access a command that requires auth
+				
 				case 'badToken':					# The token provided did not match the token on file
+				case 'sessionMismatch':				# Two users attempted to log in using the same account (one was booted)
 				
 				case 'usernameTaken':				# Username (for registration) already taken
 				case 'emailTaken':					# Email address (for registration) already taken
