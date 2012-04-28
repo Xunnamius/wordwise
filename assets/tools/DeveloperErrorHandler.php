@@ -21,6 +21,13 @@
 	   throw custom errors, fatal errors, warnings, notices, and
 	   debug messages (at the behest of the DG_DEBUG_MODE directive).
 	 *
+	 * This class also utilizes the DG_DEBUG_MODE directive to manipulate
+	   error reporting within PHP. DB_DEBUG_MODE value of TRUE (or any
+	   non-zero value) will set error reporting to the appropriate setting.
+	   e.g. define('DG_DEBUG_MODE', TRUE); = error_reporting(-1);
+	   		define('DG_DEBUG_MODE', E_ALL^E_NOTICE); = error_reporting(E_ALL^E_NOTICE);
+			define('DG_DEBUG_MODE', FALSE); = error_reporting(0);
+	 *
 	 * Aliases:
 	 *		- DEH
 	 *
@@ -43,7 +50,7 @@
 	 *
 	 * Audience: PHP 5.3.3
 	 *
-	 * Version: 1.3
+	 * Version: 1.4
 	 */
 	class DeveloperErrorHandler
 	{	
@@ -143,6 +150,12 @@
 	
 	/* Class-specific Constants */
 	define('E_USER_DEBUG', -1); // Make sure E_USER_DEBUG is a real thing.
+	
+	// Added error reporting control in 1.4: if DG_DEBUG_MODE contains something like E_ALL ^ E_NOTICE, it'll use that instead of just -1
+	if(defined('DG_DEBUG_MODE') && DG_DEBUG_MODE)
+		error_reporting(DG_DEBUG_MODE === TRUE ? -1 : DG_DEBUG_MODE);
+	else
+		error_reporting(0);
 	
 	// Protect page from direct access
 	if(count(get_included_files()) <= 1) die('<h1 style="color: red; font-weight: bold;">No.</h1>');
