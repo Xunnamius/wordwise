@@ -1,0 +1,537 @@
+<?php
+	 /*------------------------- START COMMENT BLOCK -------------------------
+
+	SQL (class), by Xunamius of Dark Gray (2010).
+	http://darkgray.org/devs/Xunnamius
+
+	You are free to use this code for personal/business use as
+	long as this header (this whole comment block) remains
+	intact and is presented as is with no modifications.
+
+	--------------------------- END COMMENT BLOCK ---------------------------*/
+	
+	/*
+	 * SQL Class
+	 * 
+	 * A(nother) MySQL driver for PHP
+	 * 
+	 * A class that improves upon/adds complimentary functionality to the
+	   already ripped MySQLi library.
+	 *
+	 * Functionality provided by this class includes regulation of all
+	   database activities, the ability to connect to various multiple
+	   resources concurrently, seamless inclusion of default connection
+	   parameters if incorrect or incomplete argument array is supplied,
+	   automatic connection termination (along with overridable cleanup
+	   utility method) upon object termination, 100% protection against
+	   SQL injection and other similar database attack vactors, and the
+	   resources to handle just about any possible response from most
+	   modern MySQL database instances.
+	 *
+	 * Please note that the return result of an SQL query using this class
+	   most closely resembles that of a call to mysqli_fetch_all() with a
+	   legal mysqli result object. If your application relies heavily upon
+	   the old while($row = mysqli_fetch_assoc($result)){} logic, there
+	   is a 'fetch_row($result)' method supplied with this class to
+	   provide support for and compatability with legacy systems by
+	   emulating the functionality of the old mysqli_fetch_* functions.
+	 *
+	 * It's use, however, is not recommended (there is a bit of overhead).
+	 *
+	 * This class also has support for streaming and receiving large
+	   objects; this includes both Large Objects (LOBs) and Binary Large
+	   Objects (BLOBs) using the s(end)LOB and r(eceive)LOB options available
+	   with the query() method. Note that all objects, LOB or not, are first
+	   rebuilt on the server before becoming available for use in your scripts
+	   if the object is in rLOB mode. This improves both speed and ease of use.
+	 *
+	 * Make sure to watch out for PHP charset vs MySQL charsets and
+	   sending of Binary data as UTF-8 and vice-versa. If you're getting
+	   weird errors in sLOB mode, make sure you iron this out first!
+	 *
+	 * Check the included index.php page for examples of how this class
+	   and its various methods should be used.
+	 * 
+	 * Aliases:
+	 *		(none)
+	 *
+	 * Properties:
+	 *		- Driver
+	 *		- Singeton
+	 *		- Semi-Independent Interface
+	 * 		- Extensible
+	 *
+	 * Pertinent Directives:
+	 *		- DG_SQL_MYSQL_DEFAULT	(STRING) Comma-separated list of MySQLi connection
+	 										 params in functional order.
+	 * 
+	 * Class-specific Constants:
+	 *		D		(double)
+	 *		I		(integer)
+	 *		B		(blob)
+	 *		S		(string)
+	 * 
+	 * Dependencies:
+	 * 		+ DEH (thanks to E_USER_DEBUG constant. Remove/redefine to make independent!)
+	 *
+	 * Plugins:
+	 *		(none)
+	 *
+	 * Audience: PHP 5.3.3
+	 *
+	 * Version: 1.21
+	 */
+	class MySQLdbDriver
+	{
+		/* Setting up our environment... */
+		private static $errorlvl = FALSE;
+		private static $instance = NULL;
+		private static $connections = array();
+		private static $conDef = array('localhost', 'root', '', 'test', NULL, NULL); // Default connection parameters
+		
+		/* PHP Magic Method __clone() in Driver mode */
+		public function __clone()
+		{ return self::$instance; }
+		
+		/* PHP Magic Method __construct() in Driver mode */
+		private function __construct()
+		{
+			// Define default params if they exist
+			if(defined('DG_SQL_MYSQL_DEFAULT') && DG_SQL_MYSQL_DEFAULT)
+			{
+				$def = explode(',', DG_SQL_MYSQL_DEFAULT, 6);
+				for($i=0; $i<count($def); ++$i) self::$conDef[$i] = trim($def[$i]);
+			}
+		}
+		
+		/* PHP Magic Method __destruct() */
+		public function __destruct()
+		{ $this->disconnect(); }
+		
+		/* Used to manage exceptions within this class's subclasses. */
+		protected function except($msg, $lvl) // Update 1.21
+		{
+			if(self::$errorlvl)
+			{
+				if(class_exists('DEH', FALSE)) DEH::except($msg, $lvl, count(debug_backtrace(FALSE))-2);
+				else
+				{
+					$pre = '<span style="color: red; font-weight: bold;">';
+					$msg = $msg.'</span>';
+					if($lvl == E_USER_ERROR) die($pre.'Error: '.$msg);
+					else echo $pre.'Warning: '.$msg;
+				}
+			}
+			
+			else if($lvl == E_USER_ERROR) die('<h4 style="color: red;">MySQLi Query Error. Please report this to site administrators ASAP. Thanks!</h4>');
+			return NULL;
+		}
+		
+		/*
+		 * public static resource get_instance()
+		 *
+		 * Used to retrieve an instance of the MySQLdbDriver class
+		 * 
+		 * @return resource MySQLdbDriver instance object
+		 */
+		public static function get_instance()
+		{
+			if(!isset(self::$instance))
+			{
+				$class = __CLASS__;
+				self::$instance = new $class;
+			}
+	
+			return self::$instance;
+		}
+		
+		/*
+		 * public bool throwErrors ( bool $status )
+		 *
+		 * If $status is FALSE, non-fatal errors and debug messages
+		   will not be displayed.
+		 *
+		 * @param Bool status error throwing state
+		 *
+		 * @return Bool TRUE (always)
+		 */
+		public function throw_errors($status)
+		{
+			self::$errorlvl = (bool) $status;
+			return TRUE;
+		}
+		
+		/*
+		 * protected void cleanup ( resource $dbc )
+		 * 
+		 * Overridable function that allows for some last second
+		   clean up activities to be preformed on the database before closing
+		   the connection. Expect $dbc to be filled with the current database
+		   resource object, so cleanup must be impartial towards all
+		   connections and should return nothing/NULL.
+		 */
+		protected function cleanup($dbc){}
+		
+		/*
+		 * public bool new_connection ( string $alias , array options )
+		 *
+		 * Establishes a new connection to a MySQL database
+		 *
+		 * @param String alias connection nickname
+		 * @param Array Options connection options
+		 *
+		 * @return Integer 1 on success
+		 * @return Integer 2 if connection alias already exists
+		 * @return Bool on failure
+		 */
+		public function new_connection($alias, array $options=NULL)
+		{
+			// Connection variables
+			$connect_vars = array(isset($options['host']) 		? $options['host'] 		: self::$conDef[0],
+								  isset($options['username']) 	? $options['username'] 	: self::$conDef[1],
+								  isset($options['passwd']) 	? $options['passwd'] 	: self::$conDef[2],
+								  isset($options['dbname']) 	? $options['dbname'] 	: self::$conDef[3],
+								  isset($options['port']) 		? $options['port'] 		: self::$conDef[4],
+								  isset($options['socket']) 	? $options['socket'] 	: self::$conDef[5]
+								 );
+								 
+			$connection = @new mysqli($connect_vars[0], $connect_vars[1], $connect_vars[2], $connect_vars[3], $connect_vars[4], $connect_vars[5]);
+				
+			// Using procedural style for maximum backwards compatibility
+			if(mysqli_connect_error())
+				$this->except('MySQLdbDriver Error (#'.mysqli_connect_errno().') -> Failed to establish "'.(isset($alias) ? $alias : '(not given)').'" connection. '.mysqli_connect_error(), E_USER_ERROR);
+				
+			else if(!$connection)
+				$this->except('MySQLdbDriver Error -> Failed to initialize the MySQLi object! Are you sure PHP\'s MySQLi module is loaded?', E_USER_ERROR);
+			
+			else
+			{
+				$connection->DG_CONNECT_ARR = $connect_vars;
+				
+				if(!array_key_exists($alias, self::$connections))
+				{	
+					self::$connections[$alias] =& $connection;
+					return 1;
+				}
+				
+				// Update 1.2: does not throw an error if the alias already exists AND the provided connection variables are the same
+				else if(self::$connections[$alias] == $connection)
+				{
+					$connection->close();
+					return 2;
+				}
+				
+				else $this->except('MySQLdbDriver Warning -> Failed to establish new connection. A connection with the alias "'.(isset($alias) ? $alias : '(not given)').'" already exists.', E_USER_WARNING);
+			}
+			
+			return FALSE;
+		}
+		
+		/*
+		 * public bool disconnect ( [ string $alias ] )
+		 *
+		 * Disconnects from a database. If no alias is specified, all
+		   open connections will be severed.
+		 *
+		 * Returns NULL if everything went well, otherwise returns an array
+		   of failed alias names. This is counter-intuitive for most people,
+		   so watch it!
+		 *
+		 * @param String alias connection nickname
+		 *
+		 * @return Mixed NULL on success or Array of failed aliases on failure
+		 */
+		public function disconnect()
+		{
+			$rvals = array();
+			$a = func_get_args();
+			
+			if(empty($a))
+			{
+				foreach(self::$connections as $v => $v2)
+				{
+					$connection = self::$connections[$v];
+					$this->cleanup($connection);
+					$connection->close();
+					unset(self::$connections[$v]);
+				}
+				
+				return NULL;
+			}
+			
+			else
+			{
+				foreach($a as $v)
+				{
+					if(array_key_exists($v, self::$connections))
+					{
+						$connection = self::$connections[$v];
+						$this->cleanup($connection);
+						$connection->close();
+						unset(self::$connections[$v]);
+					}
+					
+					else
+					{
+						$val = (isset($v) ? $v : '(not given)');
+						$rvals[] = $val;
+						$this->except('MySQLdbDriver Notice -> Disconnection attempt failed. A connection with the alias "'.$val.'" does not exist.', E_USER_NOTICE);
+					}
+				}
+				
+				return (empty($rvals) ? NULL : $rvals);
+			}
+		}
+		
+		/*
+		 * public mixed query ( string $sql, array $args [, array $options ] )
+		 *
+		 * Preforms a query on the specified database using Prepared Statements.
+		 *
+		 * Arg types = B -> blob; I -> integer; D -> double; S -> string
+		 *
+		 * Make sure to check out the example index.php file included with this
+		   script to see just how much power this method has!
+		 *
+		 * @param String sql query
+		 * @param Array args query params to be bound
+		 * @param Array[optional] options optional array of options (alias/result mode)
+		 *
+		 * Note that with the B (blob) type, $args array morph from
+		   array( array(mixed $data, const $type), array(mixed $data, const $type), ... )
+		   to
+		   array( array(mixed $data, B, integer $chunk, resource $fhandle), ... )
+		 *
+		 * With the aforementioned setup, if $fhandle is NOT NULL, then $data will be
+		   ignored and vice-versa. If chunk is below zero or invalid, it will default
+		   to 8192, and represents how big the chunks of data that are being sent to
+		   the database will be. It is not recommended one go above 8192.
+		 *
+		 * If everything is ready and fhandle is NOT NULL, then data will be sent using
+		   fread(). If this is not satisfactory, you may do your own sending of B/LOB
+		   data using the call_db method provided at the bottom of this class. Do note,
+		   however, that using call_db requires you to write your own wrappers for
+		   PHP+MySQL Prepared Statement support.
+		 *
+		 * Also note that $fhandle is automatically fseek()ed to 0 at the end of the
+		   process BUT NOT at the start! Also note that the file IS NOT fclose()ed
+		   automatically.
+		 *
+		 * Either way, have fun sending B/LOB data :P
+		 *
+		 * @return Object customized result Object
+		 */
+		public function query($sql, array $args=NULL, array $options=NULL)
+		{
+			$return = NULL;
+			$sLOBdata = array();
+			
+			$alias = isset($options['alias']) ? $options['alias'] : (count(self::$connections) >= 1 ? current(array_keys(self::$connections)) : NULL);
+			$resultmode = isset($options['resultmode']) ? $options['resultmode'] : MYSQLI_ASSOC;
+			$sLOBwarn = isset($options['sLOBwarn']) ? (bool) $options['sLOBwarn'] : TRUE;
+			$sLOBmode = isset($options['sLOBmode']) ? (bool) $options['sLOBmode'] : FALSE;
+			$rLOBmode = isset($options['rLOBmode']) ? (bool) $options['rLOBmode'] : FALSE;
+			
+			if(isset($alias) && array_key_exists($alias, self::$connections))
+			{
+				$connection = self::$connections[$alias];
+				
+				if($stmt = $connection->prepare($sql))
+				{
+					$meta = $stmt->result_metadata();
+					$cols = array();
+					$rows = array();
+					$result = TRUE;
+					
+					// Gather metadata
+					if($meta) while($col = mysqli_fetch_field($meta)) $cols[] = $col->name;
+						
+					// Bind parameters; trigger warning if arg count different from param count or bad sLOB mode
+					$j = $stmt->param_count;
+					if($j)
+					{
+						$bind_types = array();
+						$bind_args = array();
+						
+						for($i=0; $i<$j; ++$i)
+						{
+							$type =& $args[$i][1];
+							$data =& $args[$i][0];
+							
+							if($sLOBmode && $type == 'b')
+							{
+								$chunk = ((int) $args[$i][2] <= 0) ? 8192 : (int) $args[$i][2];
+								$fhandle =& $args[$i][3];
+								$sLOBdata[] = array('num'=>$i, 'data'=>(string) $data, 'size'=>$chunk, 'handle'=>$fhandle);
+								$data = NULL;
+							}
+							
+							$bind_types[] =& $type;
+							$bind_args[] =& $data;
+						}
+						
+						$bind_array = array_merge(array(implode('', $bind_types)), $bind_args);
+						
+						if($sLOBwarn && !$sLOBmode && in_array('b', $bind_types)) $this->except('MySQLdbDriver Notice -> Sending B/LOB data in non-sLOB mode!', E_USER_NOTICE);
+						if($j != count($args)) $this->except('MySQLdbDriver '.($sLOBmode ? 'Error in sLOB Mode' : 'Notice').' -> Argument+Parameter Mismatch notice.', ($sLOBmode ? E_USER_ERROR : E_USER_NOTICE));
+						call_user_func_array(array($stmt, 'bind_param'), $bind_array);
+					}
+					
+					// Send B/LOB data
+					if($sLOBmode) foreach($sLOBdata as $lob)
+					{
+						if($lob['handle']) // data is ignored
+						{
+							while(!feof($lob['handle'])) $stmt->send_long_data($lob['num'], fread($lob['handle'], $lob['size']));
+							fseek($lob['handle'], 0);
+						}
+						
+						else // fhandle is ignored
+						{
+							$c = 0;
+							while($c <= strlen($lob['data']))
+							{
+								$stmt->send_long_data($lob['num'], substr($lob['data'], $c, $c+$lob['size']));
+								$c += $lob['size'];
+							}
+						}
+					}
+					
+					// Execute query
+					$stmt->execute();
+					if($rLOBmode) $stmt->store_result();
+					
+					if($meta)
+					{
+						//MYSQLI_ASSOC, MYSQLI_NUM, or MYSQLI_BOTH
+						while($result)
+						{
+							$params = array();
+							$rows[] = array();
+							$row =& $rows[count($rows)-1];
+							foreach($cols as $col) $params[] =& $row[$col];
+							
+							// Bind and fetch
+							call_user_func_array(array($stmt, "bind_result"), $params);
+							$result = $stmt->fetch();
+							
+							if($resultmode == MYSQLI_BOTH || $resultmode == MYSQLI_NUM)
+							{
+								$copy = $row;
+								foreach($copy as $value) $row[] = $value;
+							}
+							
+							if($resultmode == MYSQLI_NUM)
+								foreach($row as $key => $value)
+									if(!is_int($key)) unset($row[$key]);
+						}
+					}
+					
+					else if($stmt->errno || $stmt->sqlstate != '00000') $result = FALSE;
+					
+					if($result !== FALSE)
+					{
+						if(is_null($result)) array_pop($rows);
+						$return = (object) array('num_rows'=>count($rows), 'aff_rows'=>$stmt->affected_rows, 'insert_id'=>$stmt->insert_id, 'rows'=>$rows);
+					}
+					
+					else
+					{
+						$this->except('Query Trace:: <span style="color: red;">'.$sql.'</span>', E_USER_DEBUG);
+						$this->except('MySQLdbDriver Error'.(isset($stmt->errno) ? ' -> Query Error [#'.$stmt->errno.'/'.$stmt->sqlstate.'] '.$stmt->error.($stmt->errno == 2014 ? ' (did you mess up an argument?)' : '') : ' (bad args?).'), E_USER_ERROR);
+					}
+					
+					// Close statement/memory (regardless of error) and clean up results array
+					$stmt->free_result();
+					$stmt->close();
+				}
+					
+				//Prepare failed
+				else
+				{
+					$this->except('Query Trace:: <span style="color: red;">'.$sql.'</span>', E_USER_DEBUG);
+					$this->except('MySQLdbDriver Error -> Could not prepare statement.'.(isset($connection->errno) ? ' Query Error [#'.$connection->errno.'/'.$connection->sqlstate.'] '.$connection->error : ' (SQL syntax error?).'), E_USER_ERROR);
+				}
+			}
+			
+			else $this->except('MySQLdbDriver Warning -> Query Error. Alias "'.(isset($alias) ? $alias : '(not given)').'" does not exist.', E_USER_WARNING);			
+			return $return;
+		}
+		
+		/*
+		 * public array get_connections()
+		 *
+		 * Returns an array containing the aliases of all open connections.
+		 *
+		 * @return Array open connection aliases
+		 */
+		public function get_connections()
+		{ return array_keys(self::$connections); }
+		
+		/*
+		 * public array is_alias() | Update 1.2
+		 *
+		 * Returns TRUE/FALSE depending on the existence of the alias passed in.
+		 *
+		 * @return Bool True/False on exists/not exists
+		 */
+		public function is_alias($alias)
+		{ return array_key_exists($alias, self::$connections); }
+		
+		/*
+		 * public array fetch_row ( custom_result_object &$result )
+		 *
+		 * Provide support for fetching all rows from a custom MySQLdbDriver
+		   result object.
+		 *
+		 * Returns NULL (instead of a blank array) if end of array has been
+		   reached. Note that reset() was called on the $result array if
+		   NULL has been returned.
+		 *
+		 * @param Object result custom result object
+		 *
+		 * @return Array emulated mysqli_fetch_row() result
+		 */
+		public function fetch_row(&$result)
+		{
+			$row = each($result->rows);
+			if(!$row) reset($result->rows);
+			return is_array($row) ? current($row) : NULL;
+		}
+		
+		/*
+		 * public mixed call_db ( string $cmd [, array $args [, string $alias ]] )
+		 *
+		 * Execute commands on a MySQLi Connection Object DIRECTLY
+		   using call_user_func() [dangerous!] If alias is missing,
+		   this function will assume you mean to refer to the very
+		   first alias at index zero of the connections list.
+		 *
+		 * @param String cmd method or property with which to access
+		 * @param Array args arguments to feed the cmd
+		 * @param String alias connection nickname
+		 *
+		 * @return Mixed (unknown data)
+		 */
+		public function call_db($cmd, $args=NULL, $alias=NULL)
+		{
+			if(!isset($alias) && count(self::$connections) >= 1) $alias = current(array_keys(self::$connections));
+			if(isset($alias) && array_key_exists($alias, self::$connections))
+			{
+				$connection =& self::$connections[$alias];
+				return call_user_func(array($connection, $cmd), $args);
+			}
+			
+			else $this->except('MySQLdbDriver Warning -> Direct Data-call Error. Alias "'.(isset($alias) ? $alias : '(not given)').'" does not exist.', E_USER_WARNING);
+		}
+	}
+	
+	/* Class-specific Constants */
+	define('D', 'd'); // Double
+	define('I', 'i'); // Integer
+	define('B', 'b'); // Blob
+	define('S', 's'); // String
+	
+	// Protect page from direct access
+	if(count(get_included_files()) <= 1) die('<h1 style="color: red; font-weight: bold;">No.</h1>');
+?>

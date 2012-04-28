@@ -87,6 +87,8 @@
 	 *		- TYPE_ALPHANUM (15)		A string can only contain numbers and letters
 	 *		- TYPE_UPPER (16)			A string can only contain uppercase letters
 	 *		- TYPE_LOWER (17)			A string can only contain lowercase letters
+	 *		- TYPE_HEX (18)				Must contain only valid hex data
+	 *		- TYPE_BIN (19)				Must contain only valid bin data
 	 * 
 	 * Dependencies:
 	 * 		(none)
@@ -96,7 +98,7 @@
 	 *
 	 * Audience: PHP 5.3.3
 	 *
-	 * Version: 1.41
+	 * Version: 1.5
 	 */
 	abstract class Controller
 	{
@@ -398,6 +400,14 @@
 					case TYPE_UPPER:
 						return ctype_upper($var);
 						break;
+					
+					case TYPE_HEX:
+						return (bool) preg_match("/^[a-f0-9]+$/i", $var);
+						break;
+					
+					case TYPE_BIN:
+						return (bool) preg_match("/^(0|1)+$/i", $var);
+						break;
 				}
 			}
 			
@@ -436,6 +446,11 @@
 	define('TYPE_ALPHANUM', 15);	// Letters and numbers only
 	define('TYPE_UPPER', 16);		// Letters are all uppercase
 	define('TYPE_LOWER', 17);		// Letters are all lowercase
+	
+	/* Added in 1.5 */
+	define('TYPE_HEX', 18);		// Must be hex
+	define('TYPE_BIN', 19);		// Must be bin
+	define('TYPE_BINARY', 19);	// Alias of TYPE_BIN
 	
 	// Protect page from direct access
 	if(count(get_included_files()) <= 1) die('<h1 style="color: red; font-weight: bold;">No.</h1>');

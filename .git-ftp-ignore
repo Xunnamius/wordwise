@@ -2,3 +2,5 @@ assets/less
 *\.psd
 \.git*
 */\.git*
+~devkey.php
+README.md
