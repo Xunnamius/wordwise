@@ -13,7 +13,7 @@
 		const USERNAME_MINLEN = 4;
 		const PASSWORD_HEXLEN = 40;
 		
-		const REQUEST_TIME_PERIOD 	= 10; # seconds
+		const REQUEST_TIME_PERIOD 	= 10; # seconds; should be smaller than USER_TIMEOUT_PERIOD
 		const REQUEST_MAX_REQUESTS 	= 10; # requests per ^ seconds
 		const USER_TIMEOUT_PERIOD	= 60; # seconds; you bad little boy you :P
 		
@@ -31,6 +31,9 @@
 		
 		protected function run_AJAX()
 		{
+			# Available actions (I'm writing a Command Pattern OO class that'll encapsulate all of this)
+			$ACTIONS = array('handshake', 'auth', 'register', 'addWord', 'fetchRandomWord', 'unauth');
+			
 			session_start();
 			
 			# Set up our environment...
@@ -66,6 +69,7 @@
 				if(time() - $_SESSION['USR']['REQUEST']['time'] >= self::USER_TIMEOUT_PERIOD)
 				{
 					$_SESSION['USR']['FLAGS']['timeout'] = FALSE;
+					$_SESSION['USR']['REQUEST']['count'] = 0;
 					$_SESSION['USR']['REQUEST']['time'] = time(); # Reset our request timer
 				}
 				
@@ -90,9 +94,6 @@
 			# End sentinels; start main code
 			$action = isset($_GET['action']) ? $_GET['action'] : NULL;
 			$token  = isset($_GET['token'])  ? $_GET['token']  : NULL;
-			
-			# Available actions (I'm writing a Command Pattern OO class that'll encapsulate all of this)
-			$ACTIONS = array('handshake', 'auth', 'register', 'addword', 'fetchRandomWord', 'unauth');
 			
 			# Okay, one more sentinel before we go on...
 			if(!in_array($action, $ACTIONS))
@@ -125,13 +126,13 @@
 					   			strlen($_GET['password']) != self::PASSWORD_HEXLEN || # 'password' is expected to be a 40 char SHA1 hash
 					   			!$this->validate('password', TYPE_HEX, 'get');
 					
-					# Action: authorize
+					# Action: auth
 					if($_GET['action'] == $ACTIONS[1])
 					{
 						if($sentinel)
 							RESULT::badAuthentication();
 						
-						$rows = $this->sql->query('SELECT username, email, id FROM users WHERE username = ? AND password = SHA1(CONCAT(hash_salt, ?)) LIMIT 1',
+						$rows = $this->sql->query('SELECT username, email, id, banned b FROM users WHERE username = ? AND password = UNHEX(SHA1(CONCAT(hash_salt, ?))) LIMIT 1',
 							array(array($_GET['username'], S),
 								  array($_GET['password'], S)
 							));
@@ -141,17 +142,21 @@
 						
 						else
 						{
-							$_SESSION['USR']['DATA']['username'] = $rows[0]['username'];
-							$_SESSION['USR']['DATA']['email'] = $rows[0]['email'];
-							$_SESSION['USR']['DATA']['id'] = $rows[0]['id'];
+							$_SESSION['USR']['DATA']['username'] = $rows->rows[0]['username'];
+							$_SESSION['USR']['DATA']['email'] = $rows->rows[0]['email'];
+							$_SESSION['USR']['DATA']['id'] = $rows->rows[0]['id'];
 							$_SESSION['USR']['FLAGS']['authenticated'] = TRUE;
+							$_SESSION['USR']['FLAGS']['banned'] = $rows->rows[0]['b'] == 'T' ? TRUE : FALSE;
 							
 							$this->sql->query('UPDATE users SET sess_id = ? WHERE username = ? LIMIT 1',
 								array(array(session_id(), S),
 									  array($_GET['username'], S)
 							));
 							
-							RESULT::OK();
+							if($_SESSION['USR']['FLAGS']['banned'])
+								RESULT::userBanned();
+							else
+								RESULT::OK();
 						}
 					}
 					
@@ -159,19 +164,19 @@
 					else if($_GET['action'] == $ACTIONS[2])
 					{
 						if($sentinel || !$this->validate('email', TYPE_EMAIL, 'get'))
-							RESULT::badAuthentication();
+							RESULT::badRequest();
 						
 						$rows = $this->sql->query('SELECT COUNT(*) c, username u, email e FROM users WHERE username = ? OR email = ? LIMIT 1',
 							array(array($_GET['username'], S),
 								  array($_GET['email'], S)
 							));
 						
-						if($row[0]['c'])
+						if($rows->rows[0]['c'])
 						{
-							if($row[0]['u'] == $_GET['username'])
+							if(strtolower($rows->rows[0]['u']) == strtolower($_GET['username']))
 								RESULT::usernameTaken();
 								
-							else if($row[0]['e'] == $_GET['email'])
+							else if(strtolower($rows->rows[0]['e']) == strtolower($_GET['email']))
 								RESULT::emailTaken();
 								
 							else
@@ -180,7 +185,7 @@
 						
 						else
 						{
-							$result = $this->sql->query('INSERT INTO users (username, password, email, hash_salt) VALUES (?, UNHEX(SHA1(CONCAT(?,?))), ?, ?) LIMIT 1',
+							$result = $this->sql->query('INSERT INTO users (username, password, email, hash_salt) VALUES (?, UNHEX(SHA1(CONCAT(?,?))), ?, ?)',
 								array(array($_GET['username'], S),
 									  array($randstr = STR::random(40), S),
 									  array($_GET['password'], S),
@@ -200,19 +205,29 @@
 				
 				else
 				{
-					$result = $this->sql->query('SELECT username u FROM users WHERE sess_id = ? LIMIT 1', array(array(session_id(), S)));
+					$result = $this->sql->query('SELECT username u, banned b FROM users WHERE sess_id = ? LIMIT 1', array(array(session_id(), S)));
 					$dishonorable = FALSE;
 					
 					# Sentinel to make sure two users do not log in with the same account
 					if($result->num_rows != 1)
 						$dishonorable = TRUE;
 					
-					# Sanity check
-					if($result[0]['u'] != $_SESSION['USR']['DATA']['username'])
-						RESULT::internal();
+					else
+					{
+						# Sanity check
+						if($result->rows[0]['u'] != $_SESSION['USR']['DATA']['username'])
+							RESULT::internalError();
+						
+						# Ban check
+						if($result->rows[0]['b'] == 'T')
+						{
+							$_SESSION['USR']['FLAGS']['banned'] = TRUE;
+							RESULT::userBanned();
+						}
+					}
 					
 					# Action: unauth (logout; destroy session & data)
-					if($dishonorable || $action == 'unauth')
+					if($dishonorable || $action == $ACTIONS[5])
 					{
 						# Bye bye!
 						$_SESSION['USR'] = array();
@@ -231,9 +246,9 @@
 					}
 					
 					# Action: addWord
-					else if($action == 'addWord')
+					else if($action == $ACTIONS[3])
 					{
-						$word = isset($_GET['word']) ? $_GET['word'] : NULL;
+						$word = isset($_GET['word']) ? strtolower($_GET['word']) : NULL;
 						
 						if($word === NULL)
 							RESULT::badRequest();
@@ -248,31 +263,36 @@
 						else
 						{
 							# Attempt to check local cache
-							$rows = $this->sql->query('SELECT id FROM dict WHERE term = ? LIMIT 1', array(array($word)));
+							$rows = $this->sql->query('SELECT id FROM dict WHERE term = ? LIMIT 1', array(array($word, S)));
 							
 							# (I hope) we've found it!
 							if($rows->num_rows)
-								$id = $rows[0]['id'];
+								$id = $rows->rows[0]['id'];
 							
 							# Not found, so fetch it instead
 							else
 							{
 								$data = $this->fetch($word);
 								
-								if(!is_string($data) || ($data = new SimpleXMLElement($data) && empty($data)))
+								if(!is_string($data))
 									RESULT::wordNotFound();
 								
-								else if(empty($word->result))
+								$data = new SimpleXMLElement($data);
+								
+								if(empty($data))
+									RESULT::wordNotFound();
+									
+								else if(empty($data->result))
 									RESULT::badResponse();
 								
 								else
 								{
 									$data = $data->result;
-									$result = $this->sql->query('INSERT INTO dict (term, definition, usage, part_of_speech) VALUES (?, ?, ?, ?)',
+									$result = $this->sql->query('INSERT INTO dict (term, definition, example, part_of_speech) VALUES (?, ?, ?, ?)',
 										array(array($word, S),
 											  array($data->definition, S),
 											  array($data->example, S),
-											  array(current($word->partofspeech), S)
+											  array(current($data->partofspeech), S)
 									));
 									
 									if(!$result->aff_rows)
@@ -282,7 +302,18 @@
 								}
 							}
 							
+							if($id <= 0)
+								RESULT::internalError();
+							
 							# Associate the word with the user's account...
+							$r = $this->sql->query('SELECT COUNT(*) c FROM users_dict_junction WHERE user_id = ? AND dict_id = ? LIMIT 1',
+								array(array($_SESSION['USR']['DATA']['id'], I),
+									  array($id, I)
+							));
+							
+							if($r->rows[0]['c'])
+								RESULT::wordAlreadyAdded();
+							
 							$res = $this->sql->query('INSERT INTO users_dict_junction (user_id, dict_id) VALUES (?, ?)',
 								array(array($_SESSION['USR']['DATA']['id'], I),
 									  array($id, I)
@@ -296,19 +327,20 @@
 					}
 					
 					# Action: fetchRandomWord
-					else if($action == 'fetchRandomWord')
+					else if($action == $ACTIONS[4])
 					{
-						$rows = $this->sql->query('SELECT term, definition def, usage, part_of_speech pos FROM dict WHERE id IN '.
-							'(SELECT dict_id FROM users_dict_junction WHERE user_id = ? ORDER BY RAND() LIMIT 1) LIMIT 1',
+						$rows = $this->sql->query('SELECT d.term, d.definition def, d.example, d.part_of_speech pos '.
+							'FROM dict d JOIN users_dict_junction udj ON (d.id = udj.dict_id) '.
+							'WHERE udj.user_id = ? ORDER BY RAND() LIMIT 1',
 							array(array($_SESSION['USR']['DATA']['id'], I)));
 						
 						if($rows->num_rows)
 						{
 							RESULT::OK(array(
-								'term' => $rows[0]['term'],
-								'definition' => $rows[0]['def'],
-								'usage' => $rows[0]['usage'],
-								'partOfSpeech' => $rows[0]['pos']
+								'term' => $rows->rows[0]['term'],
+								'definition' => $rows->rows[0]['def'],
+								'example' => $rows->rows[0]['example'],
+								'partOfSpeech' => $rows->rows[0]['pos']
 							));
 						}
 						
@@ -316,7 +348,7 @@
 							RESULT::OK(); # Return NULL if no word can be returned
 					}
 					
-					else RESULT::unknownAction();
+					else RESULT::forbidden();
 				}
 			}
 			
@@ -350,11 +382,11 @@
 					$response = file_get_contents($host, 'r');
 					
 				else
-					RESULT::internal();
+					RESULT::internalError();
 			}
 			
 			catch(Exception $e)
-			{ RESULT::external(); }
+			{ RESULT::externalError(); }
 				
 			return $response;
 		}
@@ -396,6 +428,7 @@
 				case 'wordTooLong':					# Word was too long
 				case 'wordTooShort':				# Word was too short
 				case 'wordNotFound':				# Word was not found
+				case 'wordAlreadyAdded':			# Word was already associated with user
 				
 				case 'userBanned':					# User is banned from using the server "forever"!
 				case 'userTimeout':					# User has made too many requests and has been timed out
