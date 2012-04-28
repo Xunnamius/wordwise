@@ -103,7 +103,7 @@
 				# handshake
 				if($action == $ACTIONS[0])
 				{
-					$_SESSION['USR']['DATA']['token'] = 
+					$_SESSION['USR']['DATA']['token'] = STR::random();
 					RESULT::OK(array(
 						'token' => $_SESSION['USR']['DATA']['token'],
 						'preauth' => $_SESSION['USR']['FLAGS']['authenticated']

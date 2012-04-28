@@ -57,7 +57,7 @@
 		   characters are not allowed to repeat within the sequence at all.
 		 *
 		 * Note that if the end of the hex table is reached (due to a
-		   no_repeat_level of three (3)), the remaining didit count will
+		   no_repeat_level of three (3)), the remaining digit count will
 		   be padded with zeros.
 		 *
 		 * @param Integer[optional] ss_string_length returned string length
