@@ -4,7 +4,7 @@
 		<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />
 		<meta charset="UTF-8" />
 		
-		<title>Word Definition Demo</title>
+		<title>WordWise Demo</title>
 		
 		<meta name="viewport" content="width=100%, initial-scale=1.0" />
 		<meta name="author" content="Xunnamius of Dark Gray" />
@@ -27,28 +27,76 @@
 		<div class="container">
 			<div class="row">
 				<header class="span12">
-					<h1>Xunn's Web Scraper (demo)</h1>
+					<h1>WordWise Demo (by Xunnamius of http://darkgray.org)</h1>
 				</header>
 			</div>
 			<div class="row">
 				<hr class="span12" />
 			</div>
 			<div class="row">
-				<div class="span5">
+				<div class="span6">
+					<h3>Main screen (bottom)</h3>
 					<form id="grabber_form" class="form-search well">
 						<div>
 							<input type="text" id="grabber_word" placeholder="Loading..." maxlength="45" disabled="disabled" />
-							<button id="grabber_grab" class="btn btn-info" type="submit" disabled="disabled">Grab</button>
+							<button id="grabber_add" class="btn btn-danger" type="submit" disabled="disabled">Add Word</button>
+							<button id="grabber_fetch" class="btn btn-info" type="button" disabled="disabled">Fetch Word</button>
 						</div>
 					</form>
 				</div>
-				<div class="span7">
+				<div class="span6">
+					<h3>Main screen (top)</h3>
 					<div id="grabber_data" class="alert alert-info">
 						<h2 id="grabber_data-head" class="alert-heading pull-left">Hello!</h2>
 						<p  id="grabber_data-pos"  class="pull-right"></p>
 						<p  id="grabber_data-rel"  class="clear-both"></p>
-						<p  id="grabber_data-def">Press "Grab" to get started.</p>
+						<p  id="grabber_data-def">Press "Fetch Word" to get started.</p>
 						<p  id="grabber_data-ex"></p>
+					</div>
+				</div>
+			</div>
+			<div class="row">
+				<div class="span12">
+					<h3>Register state</h3>
+					<form id="register_form" class="form-inline well">
+						<div>
+							<input type="text" id="register_username" placeholder="Loading..." maxlength="50" disabled="disabled" />
+							<input type="password" id="register_password" placeholder="Loading..." maxlength="50" disabled="disabled" />
+							<button id="register_submit" class="btn btn-warning" type="submit" disabled="disabled">Register</button>
+						</div>
+					</form>
+				</div>
+			</div>
+			<div class="row">
+				<div class="span12">
+					<h3>Login state</h3>
+					<form id="login_form" class="form-inline well">
+						<div>
+							<input type="text" id="login_username" placeholder="Loading..." maxlength="50" disabled="disabled" />
+							<input type="password" id="login_password" placeholder="Loading..." maxlength="50" disabled="disabled" />
+							<button id="login_submit" class="btn btn-info" type="submit" disabled="disabled">Login</button>
+							<button id="login_logout" class="btn btn-danger" type="button" disabled="disabled">Logout</button>
+						</div>
+					</form>
+				</div>
+			</div>
+			<div class="row align-center">
+				<div class="span4">
+					<div class="alert">
+						<h3>Loading State (inactive)</h3>
+						<br />
+					</div>
+				</div>
+				<div class="span4">
+					<div class="alert">
+						<h3>Error State (inactive)</h3>
+						<br />
+					</div>
+				</div>
+				<div class="span4">
+					<div class="alert">
+						<h3>Success State (inactive)</h3>
+						<br />
 					</div>
 				</div>
 			</div>
