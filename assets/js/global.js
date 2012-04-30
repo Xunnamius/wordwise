@@ -76,9 +76,9 @@
 				link: 'cancel',
 				funct: Function.from(),
 	
-				onTimeout: function(){ window.fireEvent('APITimeout', this); },
-				onCancel: function(){ window.fireEvent('APICanceled', this); },
-				onError:  function(xhr){ window.fireEvent('APIXHRError', { xhr: xhr, obj: this }); },
+				onTimeout: function(){ console.log('to'); window.fireEvent('APITimeout', this); },
+				onCancel: function(){ console.log('c'); window.fireEvent('APICanceled', this); },
+				onError:  function(xhr){ console.log('e', xhr); window.fireEvent('APIXHRError', { xhr: xhr, obj: this }); },
 				
 				onSuccess: function(data)
 				{
