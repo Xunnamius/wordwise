@@ -47,16 +47,16 @@
 				<div class="span6">
 					<h3>Main screen (top)</h3>
 					<div id="grabber_data" class="alert alert-info">
-						<h2 id="grabber_data-head" class="alert-heading pull-left">Hello!</h2>
+						<h2 id="grabber_data-head" class="alert-heading pull-left">Main Screen</h2>
 						<p  id="grabber_data-pos"  class="pull-right"></p>
 						<p  id="grabber_data-rel"  class="clear-both"></p>
-						<p  id="grabber_data-def">Press "Fetch Word" to get started.</p>
+						<p  id="grabber_data-def">(login to see more)</p>
 						<p  id="grabber_data-ex"></p>
 					</div>
 				</div>
 			</div>
 			<div class="row">
-				<div class="span12">
+				<div id="registerState" class="span12">
 					<h3>Register state</h3>
 					<form id="register_form" class="form-inline well">
 						<div>
@@ -68,7 +68,7 @@
 				</div>
 			</div>
 			<div class="row">
-				<div class="span12">
+				<div id="loginState" class="span12">
 					<h3>Login state</h3>
 					<form id="login_form" class="form-inline well">
 						<div>
@@ -82,19 +82,19 @@
 			</div>
 			<div class="row align-center">
 				<div class="span4">
-					<div class="alert">
+					<div id="loadingState" class="alert">
 						<h3>Loading State (inactive)</h3>
 						<br />
 					</div>
 				</div>
 				<div class="span4">
-					<div class="alert">
+					<div id="errorState" class="alert">
 						<h3>Error State (inactive)</h3>
 						<br />
 					</div>
 				</div>
 				<div class="span4">
-					<div class="alert">
+					<div id="successState" class="alert">
 						<h3>Success State (inactive)</h3>
 						<br />
 					</div>
@@ -105,6 +105,12 @@
 		<!-- JS includes -->
 		<script type="text/javascript" src="assets/js/mootools/moo-core-1.4.5.js"></script>
 		<script type="text/javascript" src="assets/js/mootools/moo-more-1.4.0.1.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/Object.compare.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/String.QueryStringImproved.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/HashNav.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/HashNav.History.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/extensions/MooCrypt/String.SHA-1.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/extensions/MooCrypt/String.UTF-8.js"></script>
 		<script type="text/javascript" src="assets/js/global.js"></script>
 	</body>
 </html>

@@ -9,14 +9,9 @@
 		var gForm = $('grabber_form'),
 			setWord = function(data)
 			{
-				gForm.enable();
-				location.hash = '#!/'+data.term;
+				hashNav.navigateTo('/'+data.term);
 				$$('head title').set('text', 'Definition for "'+data.term+'"');
-				$('grabber_data')
-					.removeClass('alert-error')
-					.removeClass('alert-success')
-					.addClass('alert-info');
-					
+
 				$('grabber_data-head').set('text', data.term);
 				$('grabber_data-pos').set('text', data.partofspeech);
 				$('grabber_data-ex').set('text', data.examples).setStyle('display', 'block');
@@ -24,92 +19,192 @@
 				$('grabber_data-rel').set('html', data.related ? ('Related: '+data.related) : '');
 			},
 			
-			setError = function(error)
+			clearWord = function()
 			{
-				gForm.enable();
-				$('grabber_data')
-					.removeClass('alert-info')
-					.removeClass('alert-success')
-					.addClass('alert-error');
-					
-				$('grabber_data-head').set('text', 'Error :(');
+				hashNav.navigateTo('/');
+				$$('head title').set('text', 'Welcome to wordwise!');
+				
+				$('grabber_data-head').set('text', '');
 				$('grabber_data-pos').set('text', '');
 				$('grabber_data-ex').set('text', '');
-				$('grabber_data-def').set('text', error);
-				$('grabber_data-rel').set('text', 'Refresh to try again!');
+				$('grabber_data-def').set('html', '');
+				$('grabber_data-rel').set('html', '');
 			},
 			
-			setLoading = function()
+			setStateLoading = function(msg)
 			{
-				gForm.disable();
-				$('grabber_data')
-					.removeClass('alert-info')
-					.removeClass('alert-error')
-					.addClass('alert-success');
-					
-				$('grabber_data-head').set('text', 'Loading your word...');
-				$('grabber_data-pos').set('text', '');
-				$('grabber_data-ex').set('text', '');
-				$('grabber_data-def').set('text', '');
-				$('grabber_data-rel').set('text', '(this should only take a second)');
+				clearState();
+				$('loadingState').addClass('alert-info').getElement('h3').set('text', 'Loading State (active)');
+				if(msg) console.info('Loading:', msg);
+			},
+			
+			setStateError = function(msg)
+			{
+				clearState();
+				$('errorState').addClass('alert-error').getElement('h3').set('text', 'Error State (active)');
+				if(msg) console.error('Error:', msg);
+			},
+			
+			setStateSuccess = function(msg)
+			{
+				clearState();
+				$('successState').addClass('alert-success').getElement('h3').set('text', 'Success State (active)');
+				if(msg) console.log('Success:', msg);
+			},
+			
+			clearState = function()
+			{
+				$('loadingState').removeClass('alert-info').getElement('h3').set('text', 'Loading State (inactive)');
+				$('errorState').removeClass('alert-error').getElement('h3').set('text', 'Error State (inactive)');
+				$('successState').removeClass('alert-success').getElement('h3').set('text', 'Success State (inactive)');
 			};
 		
-		gForm.disable = function()
-		{
-			$('grabber_word').set('disabled', true);
-			$('grabber_grab').set('disabled', true);
-		};
+		// Handshake
+		// If auth state or pw saved, goto main screen
+		// Otherwise, goto register/login/fp (henceforth rlfp) screen
+		// If, on main screen, "New" is clicked, popup new word prompt and addword
+		// If, on main screen, "Get" is clicked, fetchRandomWord and change active word
+		// Be sure to ensure loading/error/success states occur between these
 		
-		gForm.enable = function()
+		var API = 
 		{
-			$('grabber_word').set('disabled', false);
-			$('grabber_grab').set('disabled', false);
-		};
-		
-		gForm.addEvent('submit', function(e)
-		{
-			if(e) e.stop();
+			predata: { api: 1001, token: null },
 			
-			var word = $('grabber_word');
-			if(!word.get('value'))
-				return word.highlight('#d44');
+			_raw: new Request.JSON({
+				url: 'api.php',
+				timeout: 15000,
+				link: 'cancel',
+				funct: Function.from(),
+	
+				onTimeout: function(){ window.fireEvent('APITimeout', this); },
+				onCancel: function(){ window.fireEvent('APICanceled', this); },
+				onError:  function(xhr){ window.fireEvent('APIXHRError', { xhr: xhr, obj: this }); },
 				
-			setLoading();
+				onSuccess: function(data)
+				{
+					if(!data || !data.result || data.result != 'ok')
+						setStateError(data.data);
+					else
+						this.options.funct(data);
+				}
+			}),
 			
-			(function(){
-				new Request.JSON({
-					url: 'api.php',
-					timeout: 10000,
-					
-					onTimeout: function(){ setError('Operation timed out.') },
-					onCancel: function(){ setError('Operation was canceled.') },
-					onError:  function(xhr){ setError('XHR Error: '+xhr) },
-					
-					onSuccess: function(data)
-					{
-						if(data.error)
-							setError(data.error+' (inline error)');
-						else
-							setWord(data);
-					}
-				}).get('api=1001&word='+word.get('value'));
-			}).delay(500, this);
-		});
-		
-		window.onhashchange = function()
-		{
-			var wordterm = location.hash.substr(3);
-		
-			if(wordterm)
+			handshake: function(fn)
 			{
-				$('grabber_word').set('value', wordterm);
-				gForm.fireEvent('submit');
+				API._raw.setOptions({
+					funct: function(d)
+					{
+						API.predata.token = d.data.token;
+						if(fn) fn(d);
+					}
+				}).get({ action: 'handshake' });
+			},
+			
+			authenticate: function(usr, pwd, fn)
+			{
+				API._raw.setOptions({
+					funct: function(d){ if(fn) fn(d); }
+				}).get({
+					action: 'auth',
+					username: usr,
+					password: pwd.toSHA1()
+				});
+			},
+			
+			register: function(usr, pwd, email, fn)
+			{
+				API._raw.setOptions({
+					funct: function(d){ if(fn) fn(d); }
+				}).get({ action: 'register' });
+			},
+			
+			addWord: function(fn)
+			{
+				API._raw.setOptions({
+					funct: function(d){ if(fn) fn(d); }
+				}).get({ action: 'addWord' });
+			},
+			
+			fetchRandomWord: function(fn)
+			{
+				API._raw.setOptions({
+					funct: function(d){ if(fn) fn(d); }
+				}).get({ action: 'fetchRandomWord' });
+			},
+			
+			unauth: function(fn)
+			{
+				API._raw.setOptions({
+					funct: function(d){ if(fn) fn(d); }
+				}).get({ action: 'unauth' });
 			}
 		};
 		
-		$('grabber_word').set('placeholder', 'Your word here...');
-		gForm.enable();
+		var hashNav = new HashNav(), get = API._raw.get;
+		API._raw.get = function(obj){ get.call(this, Object.merge({}, API.predata, obj)); }
 		
-		window.onhashchange();
+		/*API.handshake(function(d)
+		{
+			console.log('preauth: {preauth}, token: {token}'.substitute(d.data));
+			API.authenticate('Xunnamius', 'test', function(e)
+			{
+				console.log('data: {data}'.substitute(e));
+				API.fetchRandomWord(function(f)
+				{
+					console.log('data:', f.data);
+				});
+			});
+		});*/
+		
+		$('login_form').enable = function()
+		{
+			this.getElements('div :not(#login_logout)').set('disabled', false);
+			this.getElement('#login_logout').set('disabled', true);
+		};
+		
+		$('login_form').disable = function()
+		{
+			this.getElements('div :not(#login_logout)').set('disabled', true);
+			this.getElement('#login_logout').set('disabled', false);
+		};
+		
+		$('login_form').toggle = function()
+		{
+			if(this.retrieve('enabled'))
+			{
+				this.store('enabled', false);
+				this.disable();
+			}
+			
+			else
+			{
+				this.store('enabled', true);
+				this.enable();
+			}
+		};
+		
+		$('register_form').toggle
+		
+		var afterAuth = function()
+		{
+			$$('#login_form div :not(#login_logout)').set('disabled', true);
+			$$('#register_form div *').set('disabled', true);
+			$$('#grabber_form div *').set('disabled', false);
+			$('login_logout').set('disabled', false);
+			clearState();
+		};
+		
+		setStateLoading();
+		
+		API.handshake(function(d)
+		{
+			if(d.data.preauth) afterAuth();
+			else
+			{
+				$$('#login_form div :not(#login_logout)').set('disabled', false);
+				$$('#register_form div *').set('disabled', false);
+				clearState();
+			}
+		});
 	});
 }(document.id);

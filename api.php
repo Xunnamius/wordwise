@@ -348,7 +348,7 @@
 							RESULT::OK(); # Return NULL if no word can be returned
 					}
 					
-					else RESULT::forbidden();
+					else RESULT::alreadyAuthenticated();
 				}
 			}
 			
@@ -416,6 +416,7 @@
 				
 				case 'notAuthenticated':			# Auth failed
 				case 'badAuthentication':			# Auth request was malformed in some way
+				case 'alreadyAuthenticated':		# Re-authing is not allowed ;)
 				case 'forbidden':					# Not-auth user attempted to access a command that requires auth
 				
 				case 'badToken':					# The token provided did not match the token on file
