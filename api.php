@@ -18,11 +18,13 @@
 		const USER_TIMEOUT_PERIOD	= 60; # seconds; you bad little boy you :P
 		
 		public $MY_HOST;
+		private $RESULT;
 		private $sql;
 		
 		public function __construct()
 		{
 			$this->MY_HOST = 'http://'.$_SERVER['HTTP_HOST'].dirname($_SERVER['REQUEST_URI']);
+			$this->RESULT = new RESULT();
 			$this->sql = SQL::load_driver('MySQL');
 			parent::__construct();
 		}
@@ -62,7 +64,7 @@
 			
 			# Ban/timeout the banned/timed-out
 			if($_SESSION['USR']['FLAGS']['banned'])
-				RESULT::userBanned();
+				$this->RESULT->userBanned();
 			
 			else if($_SESSION['USR']['FLAGS']['timeout'])
 			{
@@ -74,7 +76,7 @@
 				}
 				
 				else
-					RESULT::userTimeout();
+					$this->RESULT->userTimeout();
 			}
 			
 			$_SESSION['USR']['REQUEST']['count']++;
@@ -88,7 +90,7 @@
 			if($_SESSION['USR']['REQUEST']['count'] > self::REQUEST_MAX_REQUESTS)
 			{
 				$_SESSION['USR']['FLAGS']['timeout'] = TRUE;
-				RESULT::userTimeout();
+				$this->RESULT->userTimeout();
 			}
 			
 			# End sentinels; start main code
@@ -98,7 +100,7 @@
 			
 			# Okay, one more sentinel before we go on...
 			if(!in_array($action, $ACTIONS))
-				RESULT::unknownAction();
+				$this->RESULT->unknownAction();
 			
 			# Connect to our DB
 			if($this->sql->new_connection('default'))
@@ -108,7 +110,7 @@
 				{
 					$_SESSION['USR']['DATA']['token'] = STR::random(100, 0, TRUE);
 					
-					RESULT::OK(array(
+					$this->RESULT->OK(array(
 						'token' => $_SESSION['USR']['DATA']['token'],
 						'preauth' => $_SESSION['USR']['FLAGS']['authenticated']
 					));
@@ -116,7 +118,7 @@
 				
 				# Sentinel: if the token provided is invalid, complain about it
 				if(is_null($_SESSION['USR']['DATA']['token']) || $token != $_SESSION['USR']['DATA']['token'])
-					RESULT::badToken();
+					$this->RESULT->badToken();
 				
 				# Sequester auth-req commands from auth-not-req commands
 				if(!$_SESSION['USR']['FLAGS']['authenticated'])
@@ -131,7 +133,7 @@
 					if($_GET['action'] == $ACTIONS[1])
 					{
 						if($sentinel)
-							RESULT::badAuthentication();
+							$this->RESULT->badAuthentication();
 						
 						$rows = $this->sql->query('SELECT username, email, id, banned b FROM users WHERE username = ? AND password = UNHEX(SHA1(CONCAT(hash_salt, ?))) LIMIT 1',
 							array(array($_GET['username'], S),
@@ -139,7 +141,7 @@
 							));
 						
 						if(!$rows->num_rows)
-							RESULT::notAuthenticated();
+							$this->RESULT->notAuthenticated();
 						
 						else
 						{
@@ -155,9 +157,9 @@
 							));
 							
 							if($_SESSION['USR']['FLAGS']['banned'])
-								RESULT::userBanned();
+								$this->RESULT->userBanned();
 							else
-								RESULT::OK();
+								$this->RESULT->OK();
 						}
 					}
 					
@@ -165,7 +167,7 @@
 					else if($_GET['action'] == $ACTIONS[2])
 					{
 						if($sentinel || !$this->validate('email', TYPE_EMAIL, 'get'))
-							RESULT::badRequest();
+							$this->RESULT->badRequest();
 						
 						$rows = $this->sql->query('SELECT COUNT(*) c, username u, email e FROM users WHERE username = ? OR email = ? LIMIT 1',
 							array(array($_GET['username'], S),
@@ -175,13 +177,13 @@
 						if($rows->rows[0]['c'])
 						{
 							if(strtolower($rows->rows[0]['u']) == strtolower($_GET['username']))
-								RESULT::usernameTaken();
+								$this->RESULT->usernameTaken();
 								
 							else if(strtolower($rows->rows[0]['e']) == strtolower($_GET['email']))
-								RESULT::emailTaken();
+								$this->RESULT->emailTaken();
 								
 							else
-								RESULT::internalError();
+								$this->RESULT->internalError();
 						}
 						
 						else
@@ -195,13 +197,13 @@
 								));
 							
 							if($result->aff_rows)
-								RESULT::OK();
+								$this->RESULT->OK();
 							else
-								RESULT::notRegistered();
+								$this->RESULT->notRegistered();
 						}
 					}
 					
-					else RESULT::forbidden();
+					else $this->RESULT->forbidden();
 				}
 				
 				else
@@ -217,13 +219,13 @@
 					{
 						# Sanity check
 						if($result->rows[0]['u'] != $_SESSION['USR']['DATA']['username'])
-							RESULT::internalError();
+							$this->RESULT->internalError();
 						
 						# Ban check
 						if($result->rows[0]['b'] == 'T')
 						{
 							$_SESSION['USR']['FLAGS']['banned'] = TRUE;
-							RESULT::userBanned();
+							$this->RESULT->userBanned();
 						}
 					}
 					
@@ -241,22 +243,22 @@
 						if(isset($_COOKIE[session_name()])) setcookie(session_name(), '', time()-60*60*24*365*20, '', '', false, true);
 						
 						if($dishonorable)
-							RESULT::sessionMismatch();
+							$this->RESULT->sessionMismatch();
 						else
-							RESULT::OK();
+							$this->RESULT->OK();
 					}
 					
 					# Action: addWord
 					else if($action == $ACTIONS[3])
 					{
 						if($word === NULL)
-							RESULT::badRequest();
+							$this->RESULT->badRequest();
 						
 						if(strlen($word) > self::WORD_MAXLENGTH)
-							RESULT::wordTooLong();
+							$this->RESULT->wordTooLong();
 						
 						else if(strlen($word) < self::WORD_MINLENGTH)
-							RESULT::wordTooShort();
+							$this->RESULT->wordTooShort();
 						
 						# All sentinels cleared!
 						else
@@ -274,15 +276,15 @@
 								$data = $this->fetch($word);
 								
 								if(!is_string($data))
-									RESULT::wordNotFound();
+									$this->RESULT->wordNotFound();
 								
 								$data = new SimpleXMLElement($data);
 								
 								if(empty($data))
-									RESULT::wordNotFound();
+									$this->RESULT->wordNotFound();
 									
 								else if(empty($data->result))
-									RESULT::badResponse();
+									$this->RESULT->badResponse();
 								
 								else
 								{
@@ -295,14 +297,14 @@
 									));
 									
 									if(!$result->aff_rows)
-										RESULT::SQLError();
+										$this->RESULT->SQLError();
 									else
 										$id = $result->insert_id;
 								}
 							}
 							
 							if($id <= 0)
-								RESULT::internalError();
+								$this->RESULT->internalError();
 							
 							# Associate the word with the user's account...
 							$r = $this->sql->query('SELECT COUNT(*) c FROM users_dict_junction WHERE user_id = ? AND dict_id = ? LIMIT 1',
@@ -311,7 +313,7 @@
 							));
 							
 							if($r->rows[0]['c'])
-								RESULT::wordAlreadyAdded();
+								$this->RESULT->wordAlreadyAdded();
 							
 							$res = $this->sql->query('INSERT INTO users_dict_junction (user_id, dict_id) VALUES (?, ?)',
 								array(array($_SESSION['USR']['DATA']['id'], I),
@@ -319,9 +321,9 @@
 							));
 							
 							if(!$res->aff_rows)
-								RESULT::SQLError();
+								$this->RESULT->SQLError();
 							else
-								RESULT::OK();
+								$this->RESULT->OK();
 						}
 					}
 					
@@ -335,7 +337,7 @@
 						
 						if($rows->num_rows)
 						{
-							RESULT::OK(array(
+							$this->RESULT->OK(array(
 								'term' => $rows->rows[0]['term'],
 								'definition' => $rows->rows[0]['def'],
 								'example' => $rows->rows[0]['example'],
@@ -344,17 +346,17 @@
 						}
 						
 						else
-							RESULT::OK(); # Return NULL if no word can be returned
+							$this->RESULT->OK(); # Return NULL if no word can be returned
 					}
 					
-					else RESULT::alreadyAuthenticated();
+					else $this->RESULT->alreadyAuthenticated();
 				}
 			}
 			
 			else
-				RESULT::SQLError();
+				$this->RESULT->SQLError();
 			
-			RESULT::unhandled();
+			$this->RESULT->unhandled();
 		}
 		
 		/* Fetches data from the server */
@@ -381,11 +383,11 @@
 					$response = file_get_contents($host, 'r');
 					
 				else
-					RESULT::internalError();
+					$this->RESULT->internalError();
 			}
 			
 			catch(Exception $e)
-			{ RESULT::externalError(); }
+			{ $this->RESULT->externalError(); }
 				
 			return $response;
 		}
@@ -393,13 +395,13 @@
 	
 	class RESULT
 	{
-		public static function __callStatic($method, $args)
+		public function __call($method, $args)
 		{
 			if(!is_array($args) || !count($args))
 				$args = array(NULL);
 			
 			if(in_array($method, array('send', 'OK')))
-				self::ok($args[0]);
+				$this->ok($args[0]);
 				
 			else switch($method)
 			{
@@ -418,7 +420,7 @@
 				
 				
 				case 'badRequest':					# Request was malformed in some way
-					$msg = 'Your request was malformed. Please refresh the page and try again.';
+					$msg = 'Your request was didn\'t look too good. Are you sure you\'re not forgetting something?';
 					break;
 				
 				case 'badResponse':					# Response was malformed in some way
@@ -505,21 +507,21 @@
 					break;
 					
 				default:
-					self::error('unknownResult',	# Unknown result as method call
+					$this->error('unknownResult',	# Unknown result as method call
 						'Eek. Someone messed up on our end. Sorry about that.');
 					break;
 			}
 			
-			self::error($method, $msg);
+			$this->error($method, $msg);
 		}
 		
-		protected static function ok($data)
-		{ self::create('ok', $data); }
+		protected function ok($data)
+		{ $this->create('ok', $data); }
 		
-		protected static function error($err, $msg)
-		{ self::create('error', array('type' => $err, 'message' => $msg)); }
+		protected function error($err, $msg)
+		{ $this->create('error', array('type' => $err, 'message' => $msg)); }
 		
-		private static function create($result, $data=NULL)
+		private function create($result, $data=NULL)
 		{ exit(json_encode(array('result' => $result, 'data' => $data))); }
 	}
 	
