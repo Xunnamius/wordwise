@@ -6,7 +6,7 @@
 		
 		<title>WordWise Demo</title>
 		
-		<meta name="viewport" content="width=100%, initial-scale=1.0" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
 		<meta name="author" content="Xunnamius of Dark Gray" />
 		<meta name="copyright" content="&copy; Copyright Dark Gray 2012. All Rights Reserved." />
 		<meta name="license" content="Twitter Bootstrap: https://github.com/twitter/bootstrap/blob/master/LICENSE" />
@@ -14,8 +14,8 @@
 		<meta name="description" content="" />
 		
 		<!-- CSS includes -->
-		<link rel="stylesheet" type="text/css" href="assets/css/bootstrap/bootstrap-min.css" />
-		<link rel="stylesheet" type="text/css" href="assets/css/boot-global-min.css" />
+		<link rel="stylesheet" type="text/css" href="assets/css/bootstrap/bootstrap.css" />
+		<link rel="stylesheet" type="text/css" href="assets/css/boot-global.css" />
 		
 		<!-- IE6-8 support of HTML5 elements -->
 		<!--[if lt IE 9]>
@@ -25,92 +25,112 @@
 	
 	<body>
 		<div class="container">
-			<div class="row">
+			<!--<div class="row align-center">
 				<header class="span12">
 					<h1>WordWise Demo (by Xunnamius of http://darkgray.org)</h1>
+					<hr />
+					<br />
 				</header>
-			</div>
-			<div class="row">
-				<hr class="span12" />
-			</div>
-			<div class="row">
-				<div class="span6">
-					<h3>Main screen (bottom)</h3>
-					<form id="grabber_form" class="form-search well">
-						<div>
-							<input type="text" id="grabber_word" placeholder="Loading..." maxlength="45" disabled="disabled" />
-							<button id="grabber_add" class="btn btn-danger" type="submit" disabled="disabled">Add Word</button>
-							<button id="grabber_fetch" class="btn btn-info" type="button" disabled="disabled">Fetch Word</button>
+			</div>-->
+			<div id="outer_container">
+				<div id="inner_container">
+					<div class="view-state align-center" id="state_splash">
+						<p>Loading Wordwise...</p>
+						<h6>Developed by <a href="http://darkgray.org" target="_blank">Dark Gray</a></h6>
+					</div>
+				</div>
+				<div class="view-state" id="state_container">
+					<div class="view-state" id="state_main">
+						<div id="grabber_data" class="alert alert-info empty">
+							<h2 id="grabber_data-head" class="alert-heading pull-left">Welcome to WordWise!</h2>
+							<p  id="grabber_data-pos"  class="pull-right"></p>
+							<p  id="grabber_data-rel"  class="clear-both"></p>
+							<p  id="grabber_data-def">(tap "Get" if you're ready, or "New" if you're just starting out)</p>
+							<p  id="grabber_data-ex"></p>
 						</div>
-					</form>
-				</div>
-				<div class="span6">
-					<h3>Main screen (top)</h3>
-					<div id="grabber_data" class="alert alert-info">
-						<h2 id="grabber_data-head" class="alert-heading pull-left">Main Screen</h2>
-						<p  id="grabber_data-pos"  class="pull-right"></p>
-						<p  id="grabber_data-rel"  class="clear-both"></p>
-						<p  id="grabber_data-def">(login to see more)</p>
-						<p  id="grabber_data-ex"></p>
+						<form class="form-search well">
+							<div>
+								<input type="text" class="_word" placeholder="Enter your word" maxlength="45" />
+								<div>
+									<button class="_new btn btn-danger" type="submit">New</button>
+									<button class="_get btn btn-info" type="button">Get</button>
+								</div>
+								<div>
+									<button class="_logout btn btn-danger" type="button">Logout</button>
+								</div>
+							</div>
+						</form>
+						<h6 class="align-center">Developed by <a href="http://darkgray.org" target="_blank">Dark Gray</a></h6>
 					</div>
-				</div>
-			</div>
-			<div class="row">
-				<div id="registerState" class="span12">
-					<h3>Register state</h3>
-					<form id="register_form" class="form-inline well">
-						<div>
-							<input type="text" id="register_username" placeholder="Loading..." maxlength="50" disabled="disabled" />
-							<input type="password" id="register_password" placeholder="Loading..." maxlength="50" disabled="disabled" />
-							<button id="register_submit" class="btn btn-warning" type="submit" disabled="disabled">Register</button>
+					<div class="view-state" id="state_nexus">
+						<div class="absolute-center">
+							<button class="_login btn btn-info" type="button">Login</button><br />
+							<button class="_register btn btn-info" type="button">Register</button><br />
+							<button class="_fp btn btn-inverse" type="button">I forgot my password...</button>
 						</div>
-					</form>
-				</div>
-			</div>
-			<div class="row">
-				<div id="loginState" class="span12">
-					<h3>Login state</h3>
-					<form id="login_form" class="form-inline well">
+					</div>
+					<div class="view-state" id="state_register">
+						<form class="form-inline well">
+							<div>
+								<input type="text" class="_username" placeholder="Username" maxlength="50" />
+								<input type="password" class="_password" placeholder="Password" maxlength="50" />
+								<input type="text" class="_email" placeholder="Email" maxlength="100" />
+								<div>
+									<button class="_submit btn btn-warning" type="submit">Register</button>
+									<button class="btn btn-warning _back" type="button">Back</button>
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="view-state" id="state_login">
+						<form class="form-inline well">
+							<div>
+								<input type="text" class="_username" placeholder="Username" maxlength="50" />
+								<input type="password" class="_password" placeholder="Password" maxlength="50" />
+								<div>
+									<button class="_submit btn btn-info" type="submit">Login</button>
+									<button class="btn btn-warning _back" type="button">Back</button>
+								</div>
+							</div>
+						</form>
+					</div>
+					<div class="view-state align-center" id="state_fp">
+						<h1>Problem?</h1>
 						<div>
-							<input type="text" id="login_username" placeholder="Loading..." maxlength="50" disabled="disabled" />
-							<input type="password" id="login_password" placeholder="Loading..." maxlength="50" disabled="disabled" />
-							<button id="login_submit" class="btn btn-info" type="submit" disabled="disabled">Login</button>
-							<button id="login_logout" class="btn btn-danger" type="button" disabled="disabled">Logout</button>
+							<button class="btn btn-warning _back" type="button">Back</button>
 						</div>
-					</form>
-				</div>
-			</div>
-			<div class="row align-center">
-				<div class="span4">
-					<div id="loadingState" class="alert">
-						<h3>Loading State (inactive)</h3>
-						<br />
 					</div>
 				</div>
-				<div class="span4">
-					<div id="errorState" class="alert">
-						<h3>Error State (inactive)</h3>
-						<br />
+				
+				<div id="pop_loading" class="pop absolute-center hide">
+					<div class="alert alert-info">
+						<h3>Loading...</h3>
 					</div>
 				</div>
-				<div class="span4">
-					<div id="successState" class="alert">
-						<h3>Success State (inactive)</h3>
-						<br />
+				<div id="pop_error" class="pop absolute-center hide">
+					<div class="alert alert-block alert-error">
+						<h3>Something went wrong... :(</h3>
+						<div class="content"></div>
+						<button class="_close btn btn-danger" type="button">Close</button>
 					</div>
 				</div>
+				<div id="pop_success" class="pop absolute-center hide">
+					<div class="alert alert-block alert-success">
+						<h3>Success!</h3>
+						<div class="content"></div>
+						<button class="_close btn btn-success" type="button">Close</button>
+					</div>
+				</div>
+				<div id="pop_overlay" class="absolute-center hide"></div>
 			</div>
 		</div> <!-- /container -->
 		
 		<!-- JS includes -->
 		<script type="text/javascript" src="assets/js/mootools/moo-core-1.4.5.js"></script>
 		<script type="text/javascript" src="assets/js/mootools/moo-more-1.4.0.1.js"></script>
-		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/Object.compare.js"></script>
-		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/String.QueryStringImproved.js"></script>
-		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/HashNav.js"></script>
-		<script type="text/javascript" src="assets/js/mootools/extensions/HashNav/HashNav.History.js"></script>
 		<script type="text/javascript" src="assets/js/mootools/extensions/MooCrypt/String.SHA-1.js"></script>
 		<script type="text/javascript" src="assets/js/mootools/extensions/MooCrypt/String.UTF-8.js"></script>
+		<script type="text/javascript" src="assets/js/mootools/extensions/Complex.Transitional.js"></script>
 		<script type="text/javascript" src="assets/js/global.js"></script>
 	</body>
 </html>

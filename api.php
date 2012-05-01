@@ -4,7 +4,7 @@
 <?php require_once 'assets/tools/SQLFactory.php'; ?>
 <?php require_once 'assets/tools/STR.php'; ?>
 <?php
-	class Xunnamius extends Controller
+	class Main extends Controller
 	{
 		# Constants to modify
 		const WORD_MAXLENGTH  = 45;
@@ -14,7 +14,7 @@
 		const PASSWORD_HEXLEN = 40;
 		
 		const REQUEST_TIME_PERIOD 	= 10; # seconds; should be smaller than USER_TIMEOUT_PERIOD
-		const REQUEST_MAX_REQUESTS 	= 10; # requests per ^ seconds
+		const REQUEST_MAX_REQUESTS 	= 27; # requests per ^ seconds
 		const USER_TIMEOUT_PERIOD	= 60; # seconds; you bad little boy you :P
 		
 		public $MY_HOST;
@@ -94,6 +94,7 @@
 			# End sentinels; start main code
 			$action = isset($_GET['action']) ? $_GET['action'] : NULL;
 			$token  = isset($_GET['token'])  ? $_GET['token']  : NULL;
+			$word = isset($_GET['word']) ? $_GET['word']=strtolower($_GET['word']) : NULL;
 			
 			# Okay, one more sentinel before we go on...
 			if(!in_array($action, $ACTIONS))
@@ -248,8 +249,6 @@
 					# Action: addWord
 					else if($action == $ACTIONS[3])
 					{
-						$word = isset($_GET['word']) ? strtolower($_GET['word']) : NULL;
-						
 						if($word === NULL)
 							RESULT::badRequest();
 						
@@ -400,53 +399,129 @@
 				$args = array(NULL);
 			
 			if(in_array($method, array('send', 'OK')))
-				$result = self::create('ok', $args[0]);
+				self::ok($args[0]);
 				
 			else switch($method)
 			{
 				case 'SQLError':					# General SQL error
+					$msg = 'An unknown SQL error occurred';
+					break;
+				
 				case 'internalError':				# General internal server error
+					$msg = 'An unknown internal error occurred.';
+					break;
+				
 				case 'externalError':				# General external error of some kind
+					$msg = 'An unknown external error occurred.';
+					break;
+				
+				
 				
 				case 'badRequest':					# Request was malformed in some way
+					$msg = 'Your request was malformed. Please refresh the page and try again.';
+					break;
+				
 				case 'badResponse':					# Response was malformed in some way
+					$msg = 'Received bad response from external sources.';
+					break;
+				
+				
 				
 				case 'unhandled':					# Request fell outside of the target domain in some way
+					$msg = 'Request was unhandled.';
+					break;
+				
 				case 'unknownAction':				# Unknown action in request
+					$msg = 'User specified an unknown action.';
+					break;
+				
+				
 				
 				case 'notAuthenticated':			# Auth failed
+					$msg = 'The username/password combination provided was incorrect. Please try again.';
+					break;
+				
 				case 'badAuthentication':			# Auth request was malformed in some way
+					$msg = 'Are you sure you typed your username/password in correctly?';
+					break;
+				
 				case 'alreadyAuthenticated':		# Re-authing is not allowed ;)
+					$msg = 'You are already authenticated.';
+					break;
+				
 				case 'forbidden':					# Not-auth user attempted to access a command that requires auth
+					$msg = 'You do not have permission to give that command! Please refresh the page and try again.';
+					break;
 				
 				case 'badToken':					# The token provided did not match the token on file
+					$msg = 'Bad token. Please refresh.';
+					break;
+					
+					
+				
 				case 'sessionMismatch':				# Two users attempted to log in using the same account (one was booted)
+					$msg = 'You have been disconnected from the server! Are you attempting to log in twice?';
+					break;
 				
 				case 'usernameTaken':				# Username (for registration) already taken
+					$msg = 'The username you provided for registration is not available for use.';
+					break;
+				
 				case 'emailTaken':					# Email address (for registration) already taken
+					$msg = 'The email address you provided for registration is not available for use.';
+					break;
+				
 				case 'notRegistered':				# Registration failed
+					$msg = 'Registration failed. Contact support if you need help.';
+					break;
+					
+					
 				
 				case 'wordTooLong':					# Word was too long
+					$msg = sprintf('Word "%s" was longer than the %d-character maximum.', $_GET['word'], Main::WORD_MAXLENGTH);
+					break;
+				
 				case 'wordTooShort':				# Word was too short
+					$msg = sprintf('Word "%s" was shorter than the %d-character minimum.', $_GET['word'], Main::WORD_MINLENGTH);
+					break;
+				
 				case 'wordNotFound':				# Word was not found
+					$msg = sprintf('Word "%s" was not found in any internal or external dictionary.', $_GET['word']);
+					break;
+					
 				case 'wordAlreadyAdded':			# Word was already associated with user
+					$msg = sprintf('Word "%s" was already added!', $_GET['word']);
+					break;
+					
+					
 				
 				case 'userBanned':					# User is banned from using the server "forever"!
+					$msg = 'Your account has been banned. Please contact support with any further inquiries.';
+					break;
+					
 				case 'userTimeout':					# User has made too many requests and has been timed out
-					$result = self::create('error', $method);
+					$msg = sprintf('Your account has been rate limited. Cool your heels for %d second(s).',
+						max(1, Main::USER_TIMEOUT_PERIOD - (time() - $_SESSION['USR']['REQUEST']['time'])));
 					break;
 					
 				default:
-					$result = self::create('error', 'unknownResult'); # Unknown result as method call
+					self::error('unknownResult',	# Unknown result as method call
+						'Eek. Someone messed up on our end. Sorry about that.');
 					break;
 			}
 			
-			return $result;
+			self::error($method, $msg);
 		}
+		
+		protected static function ok($data)
+		{ self::create('ok', $data); }
+		
+		protected static function error($err, $msg)
+		{ self::create('error', array('type' => $err, 'message' => $msg)); }
 		
 		private static function create($result, $data=NULL)
 		{ exit(json_encode(array('result' => $result, 'data' => $data))); }
 	}
 	
-	new Xunnamius();
+	new Main();
 ?>

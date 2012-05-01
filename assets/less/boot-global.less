@@ -8,10 +8,111 @@
 
 @import "bootstrap/variables.less";
 @import "bootstrap/mixins.less";
+@import "bootstrap/custom.less";
+
+@vWidth: 100%;
+@vHeight: 100%;
+
+html { height: 100%; }
+body { margin: 0 !important; padding: 0 !important; }
+
+div.container {
+	width: @vWidth;
+	height: @vHeight;
+	max-width: 940px;
+	min-width: 200px;
+	min-height: 200px;
+}
+
+/* Complex.Transitional styles */
+#outer_container, #inner_container, .view-state {
+	width: @vWidth;
+	height: @vHeight;
+	position: relative;
+	overflow: hidden;
+}
+
+#state_container { display: none; }
+.view-state { float: left; }
+
+/* End */
 
 /* Global */
+
 body { margin-top: 20px; }
 form { text-align: center; }
+
 #grabber_data-ex, #grabber_data-rel { .opacity(50); }
 #grabber_data-rel { font-size: 90%; }
 #grabber_data-ex { margin-top: 15px; display: none; }
+
+.pop {
+	z-index: 10;
+	.align-center;
+	width: 90%;
+	max-width: 452px;
+}
+
+.pop .content { margin: 20px 0; }
+
+#pop_overlay {
+	width: @vWidth;
+	height: @vHeight;
+	z-index: 5;
+	background-color: black;
+	.opacity(75);
+}
+
+#state_nexus button {
+	width: 100%;
+	margin: 10px 0;
+}
+
+#state_splash {
+	font-variant: small-caps;
+}
+
+#state_splash p {
+	font-size: 2em;
+	margin: 15px 0;
+}
+
+._back {
+	width: 75px;
+}
+
+.view-state div input {
+	margin: 5px 0;
+}
+
+.view-state div div {
+	margin-top: 15px;
+}
+
+.view-state div div button {
+	width: 100px;
+}
+
+form div div ._logout {
+	width: 204px;
+}
+
+.empty .alert-heading {
+	float: none;
+	width: 100%;
+}
+
+#grabber_data.empty {
+	.align-center;
+}
+
+#state_main form {
+	overflow: hidden;
+}
+
+#state_main form > div {
+	margin-top: -53px;
+}
+
+// Fucking firefox
+button { outline: 0 !important; }
